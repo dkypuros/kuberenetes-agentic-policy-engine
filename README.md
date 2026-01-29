@@ -127,4 +127,6 @@ Apache 2.0
 
 ## Slides
 
-[View the presentation slides](https://dkypuros.github.io/kuberenetes-agentic-policy-engine/slides/01_title.html)
+<a href="https://dkypuros.github.io/kuberenetes-agentic-policy-engine/slides/01_title.html" target="_blank">View the presentation slides</a>
+
+<a href="https://dkypuros.github.io/kuberenetes-agentic-policy-engine/slides/golden_agent_talk_tracks.mp3" target="_blank">Listen to talk track (MP3)</a>
