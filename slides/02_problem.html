@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - The Problem</title>
+
+    <!-- Red Hat Open Source Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        .title-area {
+            text-align: center;
+            padding: 8px 100px 12px 100px;
+            flex-shrink: 0;
+        }
+
+        .slide-title {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--stroke);
+            line-height: 1.2;
+        }
+
+        .slide-subtitle {
+            font-family: var(--font-text);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            padding: 12px 48px;
+            gap: 30px;
+            min-height: 0;
+        }
+
+        /* =========================================================================
+           COMPARISON BOXES
+           ========================================================================= */
+        .comparison-container {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .question-box {
+            border: 2px solid var(--stroke);
+            border-radius: 12px;
+            padding: 24px 32px;
+            text-align: center;
+        }
+
+        .question-text {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 500;
+            font-style: italic;
+        }
+
+        .comparison-row {
+            display: flex;
+            gap: 24px;
+            flex: 1;
+        }
+
+        .compare-box {
+            flex: 1;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .compare-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .compare-glyph {
+            width: 36px;
+            height: 36px;
+        }
+
+        .compare-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .compare-list {
+            list-style: none;
+            flex: 1;
+        }
+
+        .compare-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-family: var(--font-text);
+            font-size: 13px;
+        }
+
+        .compare-item svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .compare-summary {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--stroke-light);
+            padding-top: 12px;
+            border-top: 1px solid var(--fill-light);
+            margin-top: auto;
+        }
+
+        /* =========================================================================
+           THREAT MODEL BOX
+           ========================================================================= */
+        .threat-box {
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 20px;
+            background: var(--fill-light);
+        }
+
+        .threat-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .threat-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .threat-item {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 8px 16px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+        }
+
+        .threat-item.old {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .threat-arrow {
+            font-size: 20px;
+        }
+
+        /* =========================================================================
+           LEGEND PANEL
+           ========================================================================= */
+        .legend-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .legend-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .legend-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .legend-glyph {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .legend-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            color: var(--stroke);
+        }
+
+        .legend-text strong {
+            font-family: var(--font-mono);
+            font-weight: 500;
+        }
+
+        .insight-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--fill-light);
+        }
+
+        .insight-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+            color: var(--stroke);
+        }
+
+        /* =========================================================================
+           FOOTER & NAV
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover { background: var(--fill-light); }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- SVG Definitions -->
+        <svg width="0" height="0" style="position: absolute;">
+            <defs>
+                <!-- Checkmark -->
+                <symbol id="glyph-check" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="#000"/>
+                    <polyline points="12,20 17,25 28,14" fill="none" stroke="#fff" stroke-width="2.5"/>
+                </symbol>
+                <!-- Empty Circle -->
+                <symbol id="glyph-empty" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="#000" stroke-width="2"/>
+                </symbol>
+                <!-- X-Circle -->
+                <symbol id="glyph-x" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="#000" stroke-width="2"/>
+                    <line x1="12" y1="12" x2="28" y2="28" stroke="#000" stroke-width="2"/>
+                    <line x1="28" y1="12" x2="12" y2="28" stroke="#000" stroke-width="2"/>
+                </symbol>
+                <!-- Square (different category) -->
+                <symbol id="glyph-square" viewBox="0 0 40 40">
+                    <rect x="6" y="6" width="28" height="28" fill="none" stroke="#000" stroke-width="2" rx="2"/>
+                </symbol>
+            </defs>
+        </svg>
+
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / The Enterprise Gap</div>
+            </div>
+        </div>
+
+        <!-- Title Area -->
+        <div class="title-area">
+            <h1 class="slide-title">The CISO's Question</h1>
+            <p class="slide-subtitle">Why sandboxes are not enough for enterprise AI adoption</p>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Main Comparison -->
+            <div class="comparison-container">
+                <!-- Question -->
+                <div class="question-box">
+                    <p class="question-text">"What CAN'T this agent do?"</p>
+                </div>
+
+                <!-- Two Boxes -->
+                <div class="comparison-row">
+                    <!-- Sandbox -->
+                    <div class="compare-box">
+                        <div class="compare-header">
+                            <svg class="compare-glyph"><use href="#glyph-square"/></svg>
+                            <span class="compare-title">SANDBOX</span>
+                        </div>
+                        <ul class="compare-list">
+                            <li class="compare-item">
+                                <svg><use href="#glyph-check"/></svg>
+                                <span>Container isolation</span>
+                            </li>
+                            <li class="compare-item">
+                                <svg><use href="#glyph-check"/></svg>
+                                <span>Network boundaries</span>
+                            </li>
+                            <li class="compare-item">
+                                <svg><use href="#glyph-check"/></svg>
+                                <span>Resource limits</span>
+                            </li>
+                        </ul>
+                        <p class="compare-summary">"Agent can't escape container"</p>
+                    </div>
+
+                    <!-- What They Need -->
+                    <div class="compare-box">
+                        <div class="compare-header">
+                            <svg class="compare-glyph"><use href="#glyph-empty"/></svg>
+                            <span class="compare-title">WHAT THEY NEED</span>
+                        </div>
+                        <ul class="compare-list">
+                            <li class="compare-item">
+                                <svg><use href="#glyph-empty"/></svg>
+                                <span>Written policy</span>
+                            </li>
+                            <li class="compare-item">
+                                <svg><use href="#glyph-empty"/></svg>
+                                <span>Tool-level control</span>
+                            </li>
+                            <li class="compare-item">
+                                <svg><use href="#glyph-empty"/></svg>
+                                <span>Audit trail</span>
+                            </li>
+                            <li class="compare-item">
+                                <svg><use href="#glyph-empty"/></svg>
+                                <span>Compliance proof</span>
+                            </li>
+                        </ul>
+                        <p class="compare-summary">"Agent can't call tool X"</p>
+                    </div>
+                </div>
+
+                <!-- Threat Model Shift -->
+                <div class="threat-box">
+                    <div class="threat-title">The Threat Model Has Changed</div>
+                    <div class="threat-flow">
+                        <span class="threat-item old">Container Escape</span>
+                        <span class="threat-arrow">&rarr;</span>
+                        <span class="threat-item">Tool Misuse via Prompt Injection</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Panel -->
+            <div class="legend-panel">
+                <div class="legend-box">
+                    <div class="legend-title">Glyphs</div>
+                    <div class="legend-item">
+                        <svg class="legend-glyph"><use href="#glyph-check"/></svg>
+                        <span class="legend-text"><strong>Filled</strong> - Capability exists</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-glyph"><use href="#glyph-empty"/></svg>
+                        <span class="legend-text"><strong>Empty</strong> - Gap / not provided</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-glyph"><use href="#glyph-square"/></svg>
+                        <span class="legend-text"><strong>Square</strong> - Different category</span>
+                    </div>
+                </div>
+
+                <div class="legend-box">
+                    <div class="legend-title">Key Difference</div>
+                    <div class="legend-text" style="line-height: 1.4;">
+                        Sandboxes answer: "Can agent escape?"<br><br>
+                        Enterprises need: "Can agent call this tool with these parameters?"<br><br>
+                        These are different questions requiring different architectures.
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    <div class="legend-title">Insight</div>
+                    <p class="insight-text">
+                        Enterprise adoption is blocked not by technical capability, but by <strong>provability</strong>.
+                        CISOs need to prove agents can't do things. SOC2, FedRAMP, HIPAA, EU AI Act all require
+                        written policy + enforcement + audit.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">2</div>
+                </div>
+                <div class="source-info">Golden Agent - The Enterprise Gap</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="location.href='01_title.html'">&larr;</button>
+                <button class="nav-btn" onclick="location.href='03_pattern.html'">&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

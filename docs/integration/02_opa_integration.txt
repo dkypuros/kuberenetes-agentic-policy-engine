@@ -1,0 +1,376 @@
+========================================================================================================================
+                                    OPA (OPEN POLICY AGENT) INTEGRATION GUIDE
+========================================================================================================================
+Author: David Kypuros
+Date: January 28, 2026
+
+========================================================================================================================
+                                              OVERVIEW
+========================================================================================================================
+
+This document describes the integration of Open Policy Agent (OPA) into the Golden Agent policy engine. OPA provides
+a policy-as-code approach using the Rego language, enabling more expressive and auditable policy definitions.
+
+KEY BENEFITS:
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  • Policy as Code: Policies are written in Rego, a declarative language purpose-built for policy
+  • Decoupled Updates: Policy changes don't require recompiling the router binary
+  • Industry Standard: OPA is a CNCF graduated project, widely adopted in cloud-native environments
+  • Composable: Rego policies can be composed and reused across multiple contexts
+  • Testable: OPA provides tooling for policy testing and coverage analysis
+
+
+========================================================================================================================
+                                              ARCHITECTURE
+========================================================================================================================
+
+EMBEDDED DESIGN (Not Sidecar)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+The OPA evaluator is EMBEDDED in the router binary, not deployed as a sidecar. This ensures:
+
+  1. Complete Mediation: Every tool call passes through policy evaluation (no bypass path)
+  2. Low Latency: No network hop between router and policy engine
+  3. Atomic Updates: Policy changes are applied atomically within the process
+
+  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                     Router Binary                                                            │
+  │  ┌─────────────────┐    ┌──────────────────────────────────────────────────────────────────────────────┐   │
+  │  │  gRPC Handler   │───>│                         Policy Engine                                         │   │
+  │  │                 │    │  ┌──────────────────────────────────────────────────────────────────────┐    │   │
+  │  │  ExecuteRequest │    │  │                     OPA Evaluator (opa.go)                           │    │   │
+  │  │                 │    │  │                                                                       │    │   │
+  │  │                 │    │  │  ┌─────────────────────┐    ┌─────────────────────────────────────┐  │    │   │
+  │  │                 │    │  │  │ PreparedEvalQuery   │    │ DecisionCache (unchanged)           │  │    │   │
+  │  │                 │    │  │  │ (per agent type)    │    │ CacheKey → Decision + Reason        │  │    │   │
+  │  │                 │    │  │  │                     │    │                                     │  │    │   │
+  │  │                 │    │  │  │ ~100-500μs eval     │    │ ~1μs lookup                         │  │    │   │
+  │  │                 │    │  │  └─────────────────────┘    └─────────────────────────────────────┘  │    │   │
+  │  │                 │    │  └──────────────────────────────────────────────────────────────────────┘    │   │
+  │  └─────────────────┘    └──────────────────────────────────────────────────────────────────────────────┘   │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+========================================================================================================================
+                                              FILE STRUCTURE
+========================================================================================================================
+
+  pkg/
+  ├── policy/
+  │   ├── opa.go                         OPA evaluator wrapper
+  │   │   ├── OPAEvaluator              Main evaluator struct
+  │   │   ├── OPAPolicy                 Compiled policy with PreparedQuery
+  │   │   ├── OPAInput                  Input structure for Rego evaluation
+  │   │   ├── NewOPAEvaluator()         Constructor
+  │   │   ├── Evaluate()                Hot path evaluation
+  │   │   ├── LoadPolicy()              Load and compile Rego module
+  │   │   └── PrepareRegoQuery()        Compile Rego to PreparedEvalQuery
+  │   │
+  │   ├── rego/
+  │   │   └── templates.go              Rego policy generator
+  │   │       ├── PolicySpec            Input for Rego generation
+  │   │       ├── CompileToRego()       Convert PolicySpec → Rego module
+  │   │       └── GenerateMinimalRego() Simple policy generation
+  │   │
+  │   ├── types.go                       Updated with OPA fields
+  │   │   └── CompiledPolicy            Added: RegoModule, PreparedQuery, OPAEnabled
+  │   │
+  │   └── engine.go                      Dual-mode evaluation
+  │       ├── WithOPA()                  Enable OPA evaluation
+  │       ├── shouldUseOPA()             Check if policy should use OPA
+  │       ├── evaluateOPA()              OPA evaluation path
+  │       └── CompilePolicyWithOPA()     Create OPA-enabled CompiledPolicy
+  │
+  └── controller/
+      └── agentpolicy_controller.go      Kubernetes controller
+          ├── AgentPolicyReconciler      Controller struct
+          ├── Reconcile()                Handle CRD events
+          └── compilePolicy()            CRD → CompiledPolicy with OPA
+
+
+========================================================================================================================
+                                              REGO POLICY STRUCTURE
+========================================================================================================================
+
+GENERATED REGO FORMAT
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+When an AgentPolicy CRD is created, the controller generates a Rego module:
+
+  # Auto-generated from AgentPolicy CRD: coding-assistant-policy
+  package agentpolicy
+
+  import future.keywords.if
+  import future.keywords.in
+
+  default allow := false
+  default deny := false
+  default mts_allow := true
+
+  # Tool-specific allow rules
+  allow if {
+      input.tool == "file.read"
+      path_allowed_file_read(input.request.path)
+  }
+
+  allow if {
+      input.tool == "code.execute"
+  }
+
+  # Tool-specific deny rules
+  deny if {
+      input.tool == "network.fetch"
+  }
+
+  # Path constraint helpers
+  path_allowed_file_read(path) if {
+      glob.match("/workspace/**", [], path)
+  }
+
+  # MTS enforcement
+  mts_allow if {
+      input.agent.mts_label == input.policy.mts_label
+  }
+
+  # Final decision object
+  decision := {
+      "allow": allow and not deny and mts_allow,
+      "deny": deny,
+      "mts": mts_allow,
+      "reason": reason
+  }
+
+  reason := "tool explicitly allowed" if allow
+  reason := "tool explicitly denied" if deny
+  reason := "MTS violation" if not mts_allow
+  reason := "denied by default" if not allow
+
+
+OPA INPUT STRUCTURE
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+The input passed to Rego policies follows this structure:
+
+  {
+      "tool": "file.read",
+      "request": {
+          "path": "/workspace/main.go",
+          "size": 1024
+      },
+      "agent": {
+          "type": "coding-assistant",
+          "sandbox_id": "sandbox-123",
+          "tenant_id": "tenant-abc",
+          "session_id": "session-xyz",
+          "mts_label": "s0:c42,c108"
+      },
+      "policy": {
+          "name": "coding-assistant-policy",
+          "mts_label": "s0:c42,c108"
+      }
+  }
+
+
+OPA OUTPUT STRUCTURE
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+The decision object returned by Rego:
+
+  {
+      "allow": true,
+      "deny": false,
+      "mts": true,
+      "reason": "tool explicitly allowed"
+  }
+
+
+========================================================================================================================
+                                              EVALUATION FLOW
+========================================================================================================================
+
+  1. Request arrives at gRPC handler
+  2. Engine.Evaluate() is called
+  3. Check DecisionCache for cached decision (~1μs)
+  4. If cache miss:
+     a. Look up policy for agent type
+     b. If OPA enabled: call PreparedEvalQuery.Eval() (~100-500μs)
+     c. If legacy: use ToolTable lookup (~10-100μs)
+  5. Cache the decision
+  6. Emit audit event
+  7. Apply enforcement mode (Permissive vs Enforcing)
+  8. Return decision
+
+
+========================================================================================================================
+                                              PERFORMANCE OPTIMIZATION
+========================================================================================================================
+
+KEY OPTIMIZATION: PreparedEvalQuery
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+OPA policy compilation is expensive (~50ms). We optimize by:
+
+  1. Compile Once: PrepareRegoQuery() is called once when policy is loaded
+  2. Reuse Many: PreparedEvalQuery.Eval() is called for every request
+  3. Cache Results: DecisionCache layers on top for repeated queries
+
+  OPERATION                      │ LATENCY    │ FREQUENCY
+  ───────────────────────────────│────────────│────────────────────────────────────────────────────────────
+  PrepareRegoQuery() (compile)   │ ~50ms      │ Once per policy load (rare)
+  PreparedEvalQuery.Eval()       │ ~100-500μs │ Per cache miss (occasional)
+  DecisionCache.Get()            │ ~1μs       │ Per request (frequent)
+
+
+REGO OPTIMIZATION TIPS
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Use objects instead of arrays for lookups (O(1) vs O(n))
+  • Avoid complex comprehensions in hot paths
+  • Keep policies simple and composable
+  • Use early termination (fail fast on deny conditions)
+
+
+========================================================================================================================
+                                              KUBERNETES CONTROLLER
+========================================================================================================================
+
+The AgentPolicyReconciler watches for CRD changes and syncs to the engine:
+
+  KUBERNETES EVENT          │ CONTROLLER ACTION
+  ──────────────────────────│───────────────────────────────────────────────────────────────────────────────────
+  AgentPolicy Created       │ 1. Generate Rego from spec
+                            │ 2. Compile to PreparedEvalQuery
+                            │ 3. Create CompiledPolicy
+                            │ 4. LoadPolicy() for each agent type
+  ──────────────────────────│───────────────────────────────────────────────────────────────────────────────────
+  AgentPolicy Updated       │ 1. Regenerate Rego
+                            │ 2. Recompile PreparedEvalQuery
+                            │ 3. Update CompiledPolicy
+                            │ 4. Cache invalidated automatically
+  ──────────────────────────│───────────────────────────────────────────────────────────────────────────────────
+  AgentPolicy Deleted       │ 1. RemovePolicy() for agent types
+                            │ 2. Cache invalidated automatically
+
+
+========================================================================================================================
+                                              USAGE EXAMPLES
+========================================================================================================================
+
+ENABLE OPA MODE
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  // Using router integration
+  config := router.DefaultPolicyConfigWithOPA()
+  integration := router.NewRouterPolicyIntegration(config)
+
+  // Start controller for CRD watching
+  ctx := context.Background()
+  integration.StartController(ctx)
+
+
+MANUAL POLICY LOADING (Testing)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  // Create engine with OPA enabled
+  engine := policy.NewEngine(policy.WithOPA(true))
+
+  // Compile policy with OPA
+  regoModule := `
+      package agentpolicy
+      default allow := false
+      allow { input.tool == "file.read" }
+      decision := {"allow": allow, "deny": false, "mts": true, "reason": "test"}
+  `
+
+  compiled, err := policy.CompilePolicyWithOPA(
+      "test-policy",
+      []string{"test-agent"},
+      policy.Deny,
+      nil,
+      policy.Enforcing,
+      "",
+      regoModule,
+  )
+
+  engine.LoadPolicy("test-agent", compiled)
+
+
+DUAL-MODE OPERATION
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+The engine supports running both OPA and legacy policies simultaneously:
+
+  • Policies with OPAEnabled=true use OPA evaluation
+  • Policies with OPAEnabled=false use legacy ToolTable evaluation
+  • This allows gradual migration from legacy to OPA
+
+
+========================================================================================================================
+                                              MIGRATION GUIDE
+========================================================================================================================
+
+PHASE 1: Add OPA Code (Non-Breaking)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  • OPA disabled by default (UseOPA=false)
+  • All existing policies continue to use legacy evaluation
+  • No behavioral changes
+
+PHASE 2: Enable OPA in Test Environment
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  • Set UseOPA=true in test config
+  • Compare decisions between OPA and legacy
+  • Verify performance meets targets
+
+PHASE 3: Enable OPA by Default
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  • Set UseOPA=true in production config
+  • Legacy engine available as fallback (OPAEnabled=false per policy)
+  • Monitor for regressions
+
+PHASE 4: Remove Legacy Code (Optional)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  • Remove evaluatePolicy() and ToolTable code
+  • All policies use OPA
+  • Simplify engine structure
+
+
+========================================================================================================================
+                                              TROUBLESHOOTING
+========================================================================================================================
+
+COMMON ISSUES
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Issue: OPA evaluation returning "no results"
+  Cause: Rego module doesn't define 'decision' object
+  Fix: Ensure Rego ends with: decision := {"allow": ..., "deny": ..., "mts": ..., "reason": ...}
+
+  Issue: Policy not taking effect after CRD update
+  Cause: Cache not invalidated
+  Fix: Cache is invalidated automatically on LoadPolicy(); check controller logs
+
+  Issue: High latency on first request after policy load
+  Cause: PrepareForEval() is synchronous
+  Fix: Expected behavior; subsequent requests use cached PreparedEvalQuery
+
+  Issue: MTS violations not enforced
+  Cause: mts_allow rule missing or always true
+  Fix: Ensure Rego includes MTS check: mts_allow if { input.agent.mts_label == input.policy.mts_label }
+
+
+DEBUGGING REGO POLICIES
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  # Validate Rego syntax
+  opa fmt policy.rego
+
+  # Test policy locally
+  opa eval -i input.json -d policy.rego "data.agentpolicy.decision"
+
+  # Check policy coverage
+  opa test --coverage policy_test.rego
+
+
+========================================================================================================================
+                                              END OF DOCUMENT
+========================================================================================================================

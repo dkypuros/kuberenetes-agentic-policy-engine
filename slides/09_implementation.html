@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - Implementation Summary</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        .title-area {
+            text-align: center;
+            padding: 8px 100px 12px 100px;
+            flex-shrink: 0;
+        }
+
+        .slide-title {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--stroke);
+        }
+
+        .slide-subtitle {
+            font-family: var(--font-text);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            padding: 12px 48px;
+            gap: 30px;
+            min-height: 0;
+        }
+
+        /* =========================================================================
+           FILE TABLES
+           ========================================================================= */
+        .tables-container {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .package-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .package-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .package-name {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .package-stats {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--stroke-light);
+        }
+
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .file-table th {
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 600;
+            text-align: left;
+            padding: 6px 12px;
+            background: var(--fill-light);
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .file-table td {
+            font-family: var(--font-text);
+            font-size: 10px;
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--fill-light);
+        }
+
+        .file-table .file-name {
+            font-family: var(--font-mono);
+            font-weight: 500;
+        }
+
+        .file-table .lines {
+            text-align: right;
+            font-family: var(--font-mono);
+            color: var(--stroke-light);
+        }
+
+        /* =========================================================================
+           SUMMARY BOX
+           ========================================================================= */
+        .summary-box {
+            border: 2px solid var(--stroke);
+            border-radius: 8px;
+            padding: 16px;
+            background: var(--fill-light);
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .summary-item {
+            text-align: center;
+        }
+
+        .summary-value {
+            font-family: var(--font-mono);
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .summary-label {
+            font-family: var(--font-text);
+            font-size: 10px;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        /* =========================================================================
+           LEGEND PANEL
+           ========================================================================= */
+        .legend-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .legend-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .legend-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .legend-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .test-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 10px;
+        }
+
+        .test-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            padding: 2px 6px;
+            border: 1px solid var(--stroke);
+            border-radius: 3px;
+            background: var(--fill-light);
+        }
+
+        .insight-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--fill-light);
+            flex: 1;
+        }
+
+        .insight-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        /* =========================================================================
+           FOOTER & NAV
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover { background: var(--fill-light); }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / Code Overview</div>
+            </div>
+        </div>
+
+        <!-- Title Area -->
+        <div class="title-area">
+            <h1 class="slide-title">Implementation Summary</h1>
+            <p class="slide-subtitle">Integrated into kubernetes-sigs/agent-sandbox - sigs.k8s.io/agent-sandbox/pkg/policy</p>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Tables Container -->
+            <div class="tables-container">
+                <!-- pkg/policy/ -->
+                <div class="package-box">
+                    <div class="package-header">
+                        <span class="package-name">pkg/policy/</span>
+                        <span class="package-stats">7 files | 2,055 lines</span>
+                    </div>
+                    <table class="file-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">File</th>
+                                <th style="width: 15%;">Lines</th>
+                                <th style="width: 50%;">Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="file-name">types.go</td>
+                                <td class="lines">152</td>
+                                <td>Core types: Decision, EnforcementMode, AgentContext, AuditEvent</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">engine.go</td>
+                                <td class="lines">340</td>
+                                <td>Policy evaluation engine - the "security server"</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">cache.go</td>
+                                <td class="lines">138</td>
+                                <td>AVC-pattern decision cache (~1&micro;s lookups)</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">mts.go</td>
+                                <td class="lines">242</td>
+                                <td>Multi-Tenant Sandboxing (SELinux MCS analog)</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">audit.go</td>
+                                <td class="lines">301</td>
+                                <td>Audit sinks: AVC format, JSON, file, channel</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">engine_test.go</td>
+                                <td class="lines">397</td>
+                                <td>11 engine tests</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">mts_test.go</td>
+                                <td class="lines">390</td>
+                                <td>26 MTS tests (dominance, label generation)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- pkg/router/ -->
+                <div class="package-box">
+                    <div class="package-header">
+                        <span class="package-name">pkg/router/</span>
+                        <span class="package-stats">2 files | 537 lines</span>
+                    </div>
+                    <table class="file-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">File</th>
+                                <th style="width: 15%;">Lines</th>
+                                <th style="width: 50%;">Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="file-name">policy.go</td>
+                                <td class="lines">293</td>
+                                <td>RouterPolicyIntegration - connects router to engine</td>
+                            </tr>
+                            <tr>
+                                <td class="file-name">handler.go</td>
+                                <td class="lines">217</td>
+                                <td>gRPC handler pattern for tool requests</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- api/v1alpha1/ -->
+                <div class="package-box">
+                    <div class="package-header">
+                        <span class="package-name">api/v1alpha1/</span>
+                        <span class="package-stats">1 file | 254 lines</span>
+                    </div>
+                    <table class="file-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">File</th>
+                                <th style="width: 15%;">Lines</th>
+                                <th style="width: 50%;">Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="file-name">agentpolicy_types.go</td>
+                                <td class="lines">254</td>
+                                <td>AgentPolicy CRD with kubebuilder markers</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary -->
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-value">10</div>
+                        <div class="summary-label">Files</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-value">2,846</div>
+                        <div class="summary-label">Total Lines</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-value">37</div>
+                        <div class="summary-label">Tests</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-value">100%</div>
+                        <div class="summary-label">Pass Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Panel -->
+            <div class="legend-panel">
+                <div class="legend-box">
+                    <div class="legend-title">Test Coverage</div>
+                    <div class="test-item">
+                        <span class="test-badge">11</span>
+                        <span>Engine tests (evaluation, constraints, modes)</span>
+                    </div>
+                    <div class="test-item">
+                        <span class="test-badge">26</span>
+                        <span>MTS tests (dominance rules, label generation)</span>
+                    </div>
+                </div>
+
+                <div class="legend-box" style="flex: 1;">
+                    <div class="legend-title">Verified</div>
+                    <p class="legend-text">
+                        &#10003; All 37 tests pass<br><br>
+                        &#10003; All packages build (go build ./...)<br><br>
+                        &#10003; Apache 2.0 license headers<br><br>
+                        &#10003; Import paths: sigs.k8s.io/agent-sandbox/pkg/policy<br><br>
+                        &#10003; AgentPolicy CRD: agents.x-k8s.io/v1alpha1<br><br>
+                        &#10003; Short name: ap, agpol
+                    </p>
+                </div>
+
+                <div class="insight-box">
+                    <div class="legend-title">Integration Status</div>
+                    <p class="insight-text">
+                        Successfully integrated into <strong>kubernetes-sigs/agent-sandbox</strong>.
+                        The policy engine is now part of the official Agent Sandbox project,
+                        bringing SELinux-style Mandatory Access Control to AI agents in Kubernetes.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">9</div>
+                </div>
+                <div class="source-info">Golden Agent - Implementation Summary</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="location.href='08_takeaway.html'">&larr;</button>
+                <button class="nav-btn" disabled>&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

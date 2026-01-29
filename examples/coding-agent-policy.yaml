@@ -1,0 +1,71 @@
+# Example: Coding Assistant Agent Policy
+# This policy allows file operations within workspace and limited network access
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: coding-assistant-policy
+  namespace: default
+spec:
+  # Which agent types this policy applies to
+  agentTypes:
+    - coding-assistant
+    - code-reviewer
+
+  # Default action for tools not explicitly listed
+  defaultAction: deny
+
+  # Enforcement mode: permissive (log only) or enforcing (actually block)
+  mode: enforcing
+
+  # Explicit tool permissions
+  toolPermissions:
+    # File read - allowed within workspace
+    - tool: file.read
+      action: allow
+      constraints:
+        pathPatterns:
+          - "/workspace/**"
+          - "/tmp/**"
+
+    # File write - allowed within workspace with size limit
+    - tool: file.write
+      action: allow
+      constraints:
+        pathPatterns:
+          - "/workspace/**"
+        maxSizeBytes: 10485760  # 10MB
+
+    # File delete - explicitly denied (even in workspace)
+    - tool: file.delete
+      action: deny
+
+    # Network fetch - allowed to specific domains
+    - tool: network.fetch
+      action: allow
+      constraints:
+        allowedDomains:
+          - "api.github.com"
+          - "raw.githubusercontent.com"
+          - "pypi.org"
+          - "registry.npmjs.org"
+        allowedPorts: [80, 443]
+
+    # Code execution - allowed with constraints
+    - tool: code.execute
+      action: allow
+      constraints:
+        timeout: 60s
+        # Network access during execution is denied by sandbox
+
+    # Shell execution - denied
+    - tool: shell.execute
+      action: deny
+
+    # Database admin - denied
+    - tool: db.admin
+      action: deny
+
+status:
+  compiledHash: ""
+  lastUpdated: ""
+  activeBindings: 0

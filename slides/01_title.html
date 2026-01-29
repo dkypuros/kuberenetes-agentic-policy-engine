@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - Title</title>
+
+    <!-- Red Hat Open Source Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* =========================================================================
+           B&W DESIGN STANDARD - Golden Agent Title Slide
+           ========================================================================= */
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        /* =========================================================================
+           SLIDE CANVAS - 1920x1080
+           ========================================================================= */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        /* =========================================================================
+           HEADER
+           ========================================================================= */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        /* =========================================================================
+           CONTENT AREA - TITLE SLIDE
+           ========================================================================= */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 48px;
+            gap: 40px;
+        }
+
+        .main-title {
+            font-family: var(--font-display);
+            font-size: 72px;
+            font-weight: 700;
+            color: var(--stroke);
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            font-family: var(--font-text);
+            font-size: 28px;
+            font-weight: 400;
+            color: var(--stroke-light);
+        }
+
+        /* =========================================================================
+           FLOW DIAGRAM (Policy -> Engine -> Audit)
+           ========================================================================= */
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .flow-box {
+            width: 160px;
+            height: 80px;
+            border: 2px solid var(--stroke);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--fill-white);
+        }
+
+        .flow-box-label {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .flow-box-sub {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .flow-arrow {
+            width: 48px;
+            height: 2px;
+            background: var(--stroke);
+            position: relative;
+        }
+
+        .flow-arrow::after {
+            content: '';
+            position: absolute;
+            right: -1px;
+            top: -5px;
+            border: 6px solid transparent;
+            border-left: 8px solid var(--stroke);
+        }
+
+        /* =========================================================================
+           TAGLINE
+           ========================================================================= */
+        .tagline {
+            font-family: var(--font-text);
+            font-size: 16px;
+            color: var(--stroke-light);
+            margin-top: 48px;
+        }
+
+        /* =========================================================================
+           FOOTER
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        /* =========================================================================
+           NAVIGATION
+           ========================================================================= */
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover {
+            background: var(--fill-light);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / Mandatory Access Control</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <h1 class="main-title">GOLDEN AGENT</h1>
+            <p class="subtitle">Mandatory Access Control for AI Agents</p>
+
+            <!-- Flow Diagram -->
+            <div class="flow-diagram">
+                <div class="flow-box">
+                    <span class="flow-box-label">POLICY</span>
+                    <span class="flow-box-sub">AgentPolicy CRD</span>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-box">
+                    <span class="flow-box-label">ENGINE</span>
+                    <span class="flow-box-sub">Evaluation Logic</span>
+                </div>
+                <div class="flow-arrow"></div>
+                <div class="flow-box">
+                    <span class="flow-box-label">AUDIT</span>
+                    <span class="flow-box-sub">Structured JSON</span>
+                </div>
+            </div>
+
+            <p class="tagline">Applying 25 Years of Kernel Security to AI</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">1</div>
+                </div>
+                <div class="source-info">Golden Agent - B&W Visual Encoding</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" disabled>&larr;</button>
+                <button class="nav-btn" onclick="location.href='02_problem.html'">&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

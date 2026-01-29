@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - AgentPolicy CRD</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        .title-area {
+            text-align: center;
+            padding: 8px 100px 12px 100px;
+            flex-shrink: 0;
+        }
+
+        .slide-title {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--stroke);
+        }
+
+        .slide-subtitle {
+            font-family: var(--font-text);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            padding: 12px 48px;
+            gap: 30px;
+            min-height: 0;
+        }
+
+        /* =========================================================================
+           YAML EXAMPLE
+           ========================================================================= */
+        .yaml-container {
+            flex: 2;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .yaml-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .yaml-block {
+            flex: 1;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            line-height: 1.6;
+            background: var(--fill-light);
+            padding: 16px;
+            border-radius: 6px;
+            overflow: auto;
+        }
+
+        .yaml-block .key {
+            color: var(--stroke);
+            font-weight: 500;
+        }
+
+        .yaml-block .value {
+            color: var(--stroke-light);
+        }
+
+        .yaml-block .comment {
+            color: #888;
+            font-style: italic;
+        }
+
+        /* =========================================================================
+           STRUCTURE PANEL
+           ========================================================================= */
+        .structure-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .struct-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .struct-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .struct-item {
+            display: flex;
+            margin-bottom: 6px;
+            font-size: 10px;
+        }
+
+        .struct-field {
+            font-family: var(--font-mono);
+            font-weight: 500;
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        .struct-type {
+            font-family: var(--font-mono);
+            color: var(--stroke-light);
+            width: 100px;
+            flex-shrink: 0;
+        }
+
+        .struct-desc {
+            font-family: var(--font-text);
+            color: var(--stroke);
+        }
+
+        /* =========================================================================
+           LEGEND PANEL
+           ========================================================================= */
+        .legend-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .legend-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .legend-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .legend-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .validation-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            margin-bottom: 6px;
+            font-size: 9px;
+        }
+
+        .validation-marker {
+            font-family: var(--font-mono);
+            font-size: 8px;
+            padding: 2px 4px;
+            border: 1px solid var(--stroke);
+            border-radius: 2px;
+            background: var(--fill-light);
+        }
+
+        .insight-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--fill-light);
+        }
+
+        .insight-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        /* =========================================================================
+           FOOTER & NAV
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover { background: var(--fill-light); }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / Kubernetes API</div>
+            </div>
+        </div>
+
+        <!-- Title Area -->
+        <div class="title-area">
+            <h1 class="slide-title">AgentPolicy CRD</h1>
+            <p class="slide-subtitle">Policy as Code - api/v1alpha1/agentpolicy_types.go (254 lines)</p>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- YAML Example -->
+            <div class="yaml-container">
+                <div class="yaml-title">Example: Coding Assistant Policy</div>
+                <pre class="yaml-block"><span class="key">apiVersion:</span> <span class="value">agents.sandbox.io/v1alpha1</span>
+<span class="key">kind:</span> <span class="value">AgentPolicy</span>
+<span class="key">metadata:</span>
+  <span class="key">name:</span> <span class="value">coding-assistant-policy</span>
+<span class="key">spec:</span>
+  <span class="key">agentTypes:</span>
+    - <span class="value">coding-assistant</span>
+    - <span class="value">code-reviewer</span>
+  <span class="key">defaultAction:</span> <span class="value">deny</span>            <span class="comment"># Principle 3: Default Deny</span>
+  <span class="key">mode:</span> <span class="value">enforcing</span>                 <span class="comment"># or "permissive" for rollout</span>
+
+  <span class="key">toolPermissions:</span>
+    - <span class="key">tool:</span> <span class="value">file.read</span>
+      <span class="key">action:</span> <span class="value">allow</span>
+      <span class="key">constraints:</span>
+        <span class="key">pathPatterns:</span>              <span class="comment"># Can only read /workspace</span>
+          - <span class="value">"/workspace/**"</span>
+
+    - <span class="key">tool:</span> <span class="value">network.fetch</span>
+      <span class="key">action:</span> <span class="value">allow</span>
+      <span class="key">constraints:</span>
+        <span class="key">allowedDomains:</span>            <span class="comment"># Only approved APIs</span>
+          - <span class="value">"api.github.com"</span>
+          - <span class="value">"pypi.org"</span>
+
+    - <span class="key">tool:</span> <span class="value">shell.execute</span>
+      <span class="key">action:</span> <span class="value">deny</span>               <span class="comment"># No shell access</span>
+
+  <span class="key">tenantIsolation:</span>               <span class="comment"># Multi-Tenant Sandboxing</span>
+    <span class="key">mtsLabel:</span> <span class="value">"s0:c100,c200"</span>
+    <span class="key">enforceMode:</span> <span class="value">strict</span></pre>
+            </div>
+
+            <!-- Structure Panel -->
+            <div class="structure-container">
+                <div class="struct-box">
+                    <div class="struct-title">AgentPolicySpec Fields</div>
+                    <div class="struct-item">
+                        <span class="struct-field">agentTypes</span>
+                        <span class="struct-type">[]string</span>
+                        <span class="struct-desc">Agent types this policy applies to</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">defaultAction</span>
+                        <span class="struct-type">DecisionAction</span>
+                        <span class="struct-desc">allow | deny for unlisted tools</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">mode</span>
+                        <span class="struct-type">EnforcementMode</span>
+                        <span class="struct-desc">permissive | enforcing</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">toolPermissions</span>
+                        <span class="struct-type">[]ToolPermission</span>
+                        <span class="struct-desc">Explicit tool rules</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">tenantIsolation</span>
+                        <span class="struct-type">*MTSConfig</span>
+                        <span class="struct-desc">Multi-tenant isolation settings</span>
+                    </div>
+                </div>
+
+                <div class="struct-box">
+                    <div class="struct-title">ToolConstraints Fields</div>
+                    <div class="struct-item">
+                        <span class="struct-field">pathPatterns</span>
+                        <span class="struct-type">[]string</span>
+                        <span class="struct-desc">Glob patterns for file ops</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">allowedDomains</span>
+                        <span class="struct-type">[]string</span>
+                        <span class="struct-desc">Permitted network domains</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">deniedDomains</span>
+                        <span class="struct-type">[]string</span>
+                        <span class="struct-desc">Blocked domains (precedence)</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">allowedPorts</span>
+                        <span class="struct-type">[]int32</span>
+                        <span class="struct-desc">Permitted ports [80, 443]</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">maxSizeBytes</span>
+                        <span class="struct-type">*int64</span>
+                        <span class="struct-desc">Write size limit</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">timeout</span>
+                        <span class="struct-type">string</span>
+                        <span class="struct-desc">Execution timeout "60s"</span>
+                    </div>
+                </div>
+
+                <div class="struct-box">
+                    <div class="struct-title">AgentPolicyStatus Fields</div>
+                    <div class="struct-item">
+                        <span class="struct-field">compiledHash</span>
+                        <span class="struct-type">string</span>
+                        <span class="struct-desc">Hash for recompile detection</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">activeBindings</span>
+                        <span class="struct-type">int32</span>
+                        <span class="struct-desc">SandboxClaims using this policy</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="struct-field">conditions</span>
+                        <span class="struct-type">[]Condition</span>
+                        <span class="struct-desc">Standard K8s conditions</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Panel -->
+            <div class="legend-panel">
+                <div class="legend-box">
+                    <div class="legend-title">Kubebuilder Validations</div>
+                    <div class="validation-item">
+                        <span class="validation-marker">Enum</span>
+                        <span>action: allow|deny</span>
+                    </div>
+                    <div class="validation-item">
+                        <span class="validation-marker">Pattern</span>
+                        <span>tool: ^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$</span>
+                    </div>
+                    <div class="validation-item">
+                        <span class="validation-marker">Pattern</span>
+                        <span>mtsLabel: ^s[0-9]+(:c[0-9]+(,c[0-9]+)*)?$</span>
+                    </div>
+                    <div class="validation-item">
+                        <span class="validation-marker">MinItems</span>
+                        <span>agentTypes: 1</span>
+                    </div>
+                    <div class="validation-item">
+                        <span class="validation-marker">Default</span>
+                        <span>defaultAction: deny</span>
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    <div class="legend-title">Insight</div>
+                    <p class="insight-text">
+                        This CRD is the Kubernetes-native equivalent of SELinux .te policy files.
+                        Version controlled, auditable, declarative.
+                        <br><br>
+                        The kubebuilder markers generate OpenAPI validation - invalid policies
+                        are rejected at admission time, before they can cause problems.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">7</div>
+                </div>
+                <div class="source-info">Golden Agent - AgentPolicy CRD (api/v1alpha1/agentpolicy_types.go)</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="location.href='06_principles.html'">&larr;</button>
+                <button class="nav-btn" onclick="location.href='08_takeaway.html'">&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

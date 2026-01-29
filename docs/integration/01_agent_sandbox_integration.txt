@@ -1,0 +1,94 @@
+========================================================================================================================
+                                    AGENT POLICY INTEGRATION WITH KUBERNETES-SIGS/AGENT-SANDBOX
+========================================================================================================================
+Author: David Kypuros
+Date: January 25, 2026
+Updated: January 28, 2026 (Added OPA integration reference)
+
+See also: 02_opa_integration.txt for OPA/Rego policy integration details
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              INTEGRATION APPROACH
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+CHOSEN APPROACH: Local Integration Test
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+1. Shallow clone agent-sandbox (done - 2.7 MB)
+2. Copy Agent Policy code into the cloned repo
+3. Update imports to match agent-sandbox module path
+4. Run tests to validate integration
+5. If successful, this becomes the PR branch
+
+WHY THIS APPROACH:
+- Validates compilation against their actual codebase
+- Catches import/dependency issues early
+- Tests run in their test framework
+- No infrastructure needed (Lima VM not required yet)
+- Direct path to PR submission
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              FILE MAPPING
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+SOURCE (3_Golden_Agent/)                    → TARGET (agent-sandbox/)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+pkg/policy/types.go                         → pkg/policy/types.go
+pkg/policy/engine.go                        → pkg/policy/engine.go
+pkg/policy/cache.go                         → pkg/policy/cache.go
+pkg/policy/mts.go                           → pkg/policy/mts.go
+pkg/policy/audit.go                         → pkg/policy/audit.go
+pkg/policy/engine_test.go                   → pkg/policy/engine_test.go
+pkg/policy/mts_test.go                      → pkg/policy/mts_test.go
+pkg/router/policy.go                        → pkg/router/policy.go
+pkg/router/handler.go                       → pkg/router/handler.go
+api/v1alpha1/agentpolicy_types.go           → api/v1alpha1/agentpolicy_types.go
+api/v1alpha1/doc.go                         → (merge with existing)
+api/v1alpha1/groupversion_info.go           → (use existing)
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              IMPORT CHANGES REQUIRED
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+OLD IMPORT (our standalone code):
+  github.com/golden-agent/golden-agent/pkg/policy
+
+NEW IMPORT (integrated):
+  sigs.k8s.io/agent-sandbox/pkg/policy
+
+This change needed in:
+- pkg/router/policy.go
+- pkg/router/handler.go
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              EXECUTION STEPS
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Step 1: Create pkg/policy directory in agent-sandbox
+Step 2: Copy policy engine files (types, engine, cache, mts, audit)
+Step 3: Copy test files
+Step 4: Create pkg/router directory
+Step 5: Copy router integration files
+Step 6: Update imports in router files
+Step 7: Add AgentPolicy types to api/v1alpha1
+Step 8: Run go mod tidy
+Step 9: Run tests
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              SUCCESS CRITERIA
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+1. go build ./... succeeds
+2. go test ./pkg/policy/... passes (our 17+ tests)
+3. go test ./... passes (their tests still pass)
+4. No import cycles
+5. Code follows their style (Apache 2.0 headers, etc.)
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              END OF DOCUMENT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

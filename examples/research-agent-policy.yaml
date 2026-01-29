@@ -1,0 +1,63 @@
+# Example: Research Agent Policy
+# Allows web access for research, read-only database queries
+# No code execution, no file writes
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: research-agent-policy
+  namespace: default
+spec:
+  agentTypes:
+    - research-assistant
+    - knowledge-agent
+
+  defaultAction: deny
+
+  mode: enforcing
+
+  toolPermissions:
+    # Web search and fetch - core research capability
+    - tool: network.fetch
+      action: allow
+      constraints:
+        allowedDomains:
+          - "*.wikipedia.org"
+          - "*.arxiv.org"
+          - "*.github.com"
+          - "*.stackoverflow.com"
+          - "api.semanticscholar.org"
+          - "*.doi.org"
+        deniedDomains:
+          - "*.social-media.com"  # Block social media
+          - "*.ads.com"           # Block ad networks
+        allowedPorts: [80, 443]
+
+    # File read - can read provided documents
+    - tool: file.read
+      action: allow
+      constraints:
+        pathPatterns:
+          - "/data/documents/**"
+          - "/data/papers/**"
+
+    # Database queries - read only access to public data
+    - tool: db.query
+      action: allow
+      constraints:
+        # Note: In production, this would specify allowed tables/schemas
+
+    # File write - denied (research doesn't modify)
+    - tool: file.write
+      action: deny
+
+    # Code execution - denied (research doesn't execute)
+    - tool: code.execute
+      action: deny
+
+    # Database admin - denied
+    - tool: db.admin
+      action: deny
+
+    # Shell - denied
+    - tool: shell.execute
+      action: deny

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - Key Takeaway</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        /* =========================================================================
+           CONTENT AREA - CENTERED MESSAGE
+           ========================================================================= */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 48px;
+            gap: 48px;
+        }
+
+        .message-box {
+            max-width: 800px;
+            padding: 48px 64px;
+            border: 2px solid var(--stroke);
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .message-text {
+            font-family: var(--font-text);
+            font-size: 22px;
+            line-height: 1.6;
+            color: var(--stroke);
+        }
+
+        .message-text strong {
+            font-weight: 600;
+        }
+
+        .conclusion {
+            font-family: var(--font-display);
+            font-size: 36px;
+            font-weight: 600;
+            color: var(--stroke);
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--stroke-light);
+        }
+
+        /* =========================================================================
+           STATS ROW
+           ========================================================================= */
+        .stats-row {
+            display: flex;
+            gap: 32px;
+        }
+
+        .stat-box {
+            padding: 20px 32px;
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            text-align: center;
+            background: var(--fill-light);
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .stat-label {
+            font-family: var(--font-text);
+            font-size: 12px;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        /* =========================================================================
+           FOOTER & NAV
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover { background: var(--fill-light); }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / Conclusion</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <div class="message-box">
+                <p class="message-text">
+                    In <strong>2001</strong>, we learned how to control what <strong>processes</strong> can do.
+                </p>
+                <p class="message-text" style="margin-top: 24px;">
+                    In <strong>2026</strong>, we apply the same pattern to control what <strong>agents</strong> can do.
+                </p>
+                <p class="conclusion">THE PATTERN WORKS.</p>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value">2,741</div>
+                    <div class="stat-label">Lines of Go</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">25</div>
+                    <div class="stat-label">Years of Lineage</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">Core Principles</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">&lt;1ms</div>
+                    <div class="stat-label">Added Latency</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">8</div>
+                </div>
+                <div class="source-info">Golden Agent - Mandatory Access Control for AI Agents</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="location.href='07_crd.html'">&larr;</button>
+                <button class="nav-btn" onclick="location.href='09_implementation.html'">&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

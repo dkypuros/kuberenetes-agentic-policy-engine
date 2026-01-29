@@ -1,0 +1,330 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                    WHY THIS ARCHITECTURE WORKS: THE THEORETICAL JUSTIFICATION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Document 3 of 4 - Theoretical Foundations
+Author: David Kypuros
+Created: January 2026
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                                 THE QUESTION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Why does the hook-based security architecture work?
+Why has it persisted for 25 years?
+Why will Agent Policy work for the same reasons?
+
+This document provides the theoretical justification.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 1: BOUNDARY ENFORCEMENT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  Security is most effective when enforced at BOUNDARIES between trust domains.
+
+WHY IT WORKS:
+  A boundary is a chokepoint. Everything that crosses the boundary must pass through it.
+  If you control the boundary, you control what crosses.
+
+IN OPERATING SYSTEMS:
+  The syscall interface is the boundary between user space and kernel space.
+  Every user program that wants to affect the system must make syscalls.
+  LSM hooks are placed at syscalls → all security-relevant operations are checked.
+
+IN AGENTIC AI:
+  The Router is the boundary between the AI agent and tool execution.
+  Every agent that wants to use a tool must call through the Router.
+  Policy Engine is placed at Router → all tool calls are checked.
+
+THE MATHEMATICAL PROPERTY:
+  If B is a boundary and every path from A to C crosses B:
+    Control(B) → Control(A→C)
+
+  This is why we put the Policy Engine IN the Router, not beside it.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 2: SEPARATION OF MECHANISM AND POLICY
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  The MECHANISM that enforces security should be separate from the POLICY that defines it.
+
+WHY IT WORKS:
+  - Policies change frequently (new threats, new requirements)
+  - Mechanisms are hard to change (deep in the system)
+  - Separating them allows policy updates without mechanism changes
+
+IN LSM:
+  - Mechanism: The hook infrastructure in the kernel (stable, rarely changes)
+  - Policy: SELinux .te files, AppArmor profiles (change frequently)
+  - You can update SELinux policy without recompiling the kernel
+
+IN AGENT POLICY:
+  - Mechanism: Policy Engine in the Router (stable Go code)
+  - Policy: AgentPolicy CRDs (YAML, change frequently)
+  - You can update agent permissions without redeploying the Router
+
+THE DESIGN IMPLICATION:
+  The Policy Engine (engine.go) is generic.
+  It evaluates ANY policy against ANY request.
+  The policy definitions (AgentPolicy CRDs) are specific.
+  They define what THIS organization allows.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 3: DEFAULT DENY
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  The secure default is DENY. Everything is forbidden unless explicitly permitted.
+
+WHY IT WORKS:
+  - Allowlists are finite (list what's permitted)
+  - Denylists are infinite (list what's forbidden - always incomplete)
+  - New threats are automatically blocked by default-deny
+  - New capabilities require explicit permission
+
+IN SELINUX:
+  Default is deny. The policy specifies what IS allowed:
+    allow httpd_t httpd_content_t : file { read };
+
+  Anything not explicitly allowed is denied.
+
+IN AGENT POLICY:
+  Default is deny. The policy specifies what IS allowed:
+    toolPermissions:
+      - tool: file.read
+        action: allow
+
+  An agent with no policy can call no tools.
+  A tool not in the policy is denied.
+
+THE SECURITY PROPERTY:
+  Fail-secure: When in doubt, deny.
+  This is the opposite of fail-open (when in doubt, allow).
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 4: COMPLETE MEDIATION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  EVERY access must be checked. No exceptions. No bypasses.
+
+WHY IT WORKS:
+  One unchecked path defeats the entire system.
+  Complete mediation ensures there are no holes.
+
+IN LSM:
+  Every security-relevant syscall has a hook.
+  There's no syscall that affects security without a corresponding LSM hook.
+  If you find one, it's a bug (and gets fixed).
+
+IN AGENT POLICY:
+  Every tool call goes through the Router.
+  There's no way for an agent to call a tool without passing through Evaluate().
+  The Router IS the only path to tool execution.
+
+THE IMPLEMENTATION REQUIREMENT:
+  The Policy Engine MUST be in the hot path.
+  It cannot be optional or bypassable.
+  This is why it's in router/handler.go, not a sidecar.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 5: LEAST PRIVILEGE
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  Grant only the minimum permissions needed for the task.
+
+WHY IT WORKS:
+  - Limits blast radius of compromise
+  - Reduces attack surface
+  - Makes auditing tractable
+
+IN SELINUX:
+  httpd_t can ONLY read httpd_content_t files.
+  Even if the web server is compromised, it can't read /etc/shadow.
+  The policy enforces minimum necessary access.
+
+IN AGENT POLICY:
+  A coding-assistant can ONLY:
+    - Read files in /workspace/**
+    - Write files in /workspace/**
+    - Fetch from github.com, pypi.org
+
+  Even if the agent is prompt-injected, it can't:
+    - Read /etc/passwd
+    - Write to /etc/cron.d
+    - Fetch from evil.com
+
+THE POLICY DESIGN:
+  Start with zero permissions.
+  Add only what's necessary.
+  Document why each permission exists.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 6: AUDITABILITY
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  Every decision must be logged. Denials AND allows.
+
+WHY IT WORKS:
+  - Enables forensic analysis after incidents
+  - Satisfies compliance requirements (SOC2, FedRAMP, HIPAA)
+  - Allows policy tuning based on real usage
+  - Proves the system is working
+
+IN SELINUX:
+  /var/log/audit/audit.log contains every AVC decision:
+    type=AVC msg=audit(1234567890.123:456): avc:  denied  { read } for  pid=1234
+    comm="httpd" name="shadow" dev="sda1" ino=12345
+    scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:shadow_t:s0 tclass=file
+
+IN AGENT POLICY:
+  Audit events are structured JSON:
+    {
+      "timestamp": "2026-01-25T10:30:15Z",
+      "agent": {"type": "coding-assistant", "sandbox": "sandbox-123"},
+      "tool": "network.fetch",
+      "decision": "DENY",
+      "reason": "domain not in allowedDomains",
+      "requestId": "req_123456789"
+    }
+
+THE COMPLIANCE EQUATION:
+  COMPLIANCE = WRITTEN POLICY + ENFORCEMENT + AUDIT TRAIL
+
+  Without audit, you have enforcement but no proof.
+  With audit, you can demonstrate compliance to any auditor.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 7: CACHING FOR PERFORMANCE
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  Cache decisions to make the hot path fast.
+
+WHY IT WORKS:
+  - Policy evaluation can be expensive (complex rules, constraints)
+  - Most requests repeat the same patterns
+  - Caching converts O(policy) to O(1) for repeated requests
+
+IN SELINUX:
+  The AVC (Access Vector Cache) caches policy decisions.
+  First access: evaluate policy (~100μs)
+  Repeated access: cache lookup (~1μs)
+  Cache is invalidated when policy changes.
+
+IN AGENT POLICY:
+  The DecisionCache (cache.go) does the same:
+    cacheKey := CacheKey(agent.AgentType, toolName)
+    if decision, _, ok := e.cache.Get(cacheKey); ok {
+        return decision  // ~1μs
+    }
+    // else evaluate policy (~100μs)
+
+THE PERFORMANCE REQUIREMENT:
+  The Policy Engine must add <1ms latency to tool calls.
+  Without caching: every call pays evaluation cost.
+  With caching: only first call pays, rest are free.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         PRINCIPLE 8: PROGRESSIVE ROLLOUT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+THE PRINCIPLE:
+  Deploy in permissive mode first. Observe. Then enforce.
+
+WHY IT WORKS:
+  - Real-world usage reveals policy gaps
+  - Permissive mode logs what WOULD be denied
+  - Fix policy before enforcement breaks things
+  - Reduces risk of deployment
+
+IN SELINUX:
+  setenforce 0  # Permissive mode - log denials but don't block
+  # Observe audit.log, fix policy
+  setenforce 1  # Enforcing mode - actually block
+
+IN AGENT POLICY:
+  spec:
+    mode: permissive  # Log denials but allow
+
+  # Observe audit events, fix policy
+
+  spec:
+    mode: enforcing   # Actually block
+
+THE DEPLOYMENT PATTERN:
+  1. Deploy with mode: permissive
+  2. Run production workloads
+  3. Review audit logs for unexpected denials
+  4. Update policy to allow legitimate access
+  5. Switch to mode: enforcing
+  6. Monitor for regressions
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         WHY THESE PRINCIPLES TOGETHER
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Each principle addresses a specific concern:
+
+  PRINCIPLE                    │ CONCERN                        │ WHAT IT ENSURES
+  ─────────────────────────────│────────────────────────────────│─────────────────────────────────────────────
+  Boundary Enforcement         │ Where to check                 │ All access passes through control point
+  Separation of Mech/Policy    │ How to evolve                  │ Policy can change without code changes
+  Default Deny                 │ What's the safe default        │ Unknown threats are blocked
+  Complete Mediation           │ Are there holes                │ No bypass paths exist
+  Least Privilege              │ How much access                │ Minimal blast radius
+  Auditability                 │ Can we prove it works          │ Compliance and forensics
+  Caching                      │ Is it fast enough              │ Production performance
+  Progressive Rollout          │ How to deploy safely           │ Fix before break
+
+Together, they form a complete security architecture.
+Miss any one, and you have a gap.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         AGENT POLICY IMPLEMENTS ALL EIGHT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  PRINCIPLE                    │ AGENT POLICY IMPLEMENTATION
+  ─────────────────────────────│────────────────────────────────────────────────────────────────────────────────
+  Boundary Enforcement         │ Policy Engine in Router - all tool calls pass through
+  Separation of Mech/Policy    │ engine.go (mechanism) + AgentPolicy CRD (policy)
+  Default Deny                 │ defaultAction: deny in policy spec
+  Complete Mediation           │ Router is only path to tools - no bypass
+  Least Privilege              │ Explicit toolPermissions with constraints
+  Auditability                 │ audit.go - structured logging of all decisions
+  Caching                      │ cache.go - AVC-pattern decision cache
+  Progressive Rollout          │ mode: permissive → mode: enforcing
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              CONCLUSION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Agent Policy works because it follows the same principles that made LSM/SELinux work.
+
+These principles aren't arbitrary. They're the result of 25 years of security engineering.
+They've been tested in the most demanding environments (government, finance, healthcare).
+They've survived because they address fundamental concerns.
+
+Agent Policy doesn't reinvent security architecture.
+It applies proven architecture to a new domain.
+
+That's why it will work.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              END OF DOCUMENT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

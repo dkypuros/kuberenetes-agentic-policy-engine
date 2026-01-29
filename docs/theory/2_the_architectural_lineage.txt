@@ -1,0 +1,356 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                    THE ARCHITECTURAL LINEAGE: TRACING THE PATTERN
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Document 2 of 4 - Theoretical Foundations
+Author: David Kypuros
+Created: January 2026
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                                 THE CLAIM
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+The hook-based security architecture appears at EVERY layer of the computing stack.
+This is not coincidence. It is structural necessity.
+
+Each layer faces the same problem: how to provide mandatory access control without
+rewriting the entire layer. The solution is always the same: hooks at decision points.
+
+This document traces the lineage from kernel to AI agents.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         LAYER 1: LINUX KERNEL (LSM)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+YEAR: 2001-2003
+PROBLEM: Linux needed mandatory access control for enterprise/government use.
+SOLUTION: Linux Security Modules (LSM)
+
+KEY SOURCE FILES:
+  security/security.c           - LSM infrastructure
+  include/linux/lsm_hooks.h     - Hook definitions
+  security/selinux/hooks.c      - SELinux implementation
+
+THE PATTERN:
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                │
+  │  SYSCALL PATH                              LSM HOOK                           SECURITY MODULE                  │
+  │                                                                                                                │
+  │  sys_open("/etc/shadow")  ───────────────▶ security_file_open() ────────────▶ selinux_file_open()             │
+  │                                                │                                    │                          │
+  │                                                │                                    ▼                          │
+  │                                                │                              Check policy:                    │
+  │                                                │                              httpd_t → shadow_t               │
+  │                                                │                                    │                          │
+  │                                                ◀────────────────────────────────────┘                          │
+  │                                           ALLOW or DENY                                                        │
+  │                                                                                                                │
+  └────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+SOURCE CODE EVIDENCE (security/security.c):
+
+  int security_file_open(struct file *file)
+  {
+      return call_int_hook(file_open, 0, file);  // Calls all registered security modules
+  }
+
+RESULT:
+  - SELinux, AppArmor, Smack all use this infrastructure
+  - Default on RHEL/CentOS/Fedora
+  - Required for FedRAMP, STIG compliance
+  - Runs on billions of devices
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         LAYER 2: VIRTUALIZATION (sVirt/libvirt)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+YEAR: 2008-2010
+PROBLEM: VMs needed isolation beyond hypervisor. A compromised VM shouldn't access other VMs' resources.
+SOLUTION: sVirt - SELinux for virtualization
+
+KEY SOURCE FILES:
+  src/security/security_driver.h      - Security driver interface
+  src/security/security_selinux.c     - SELinux driver implementation
+  src/security/security_manager.c     - Security manager
+
+THE PATTERN:
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                │
+  │  VM OPERATION                           SECURITY DRIVER                      SELINUX POLICY                   │
+  │                                                                                                                │
+  │  virDomainCreate(dom)  ─────────────▶ virSecurityManagerGenLabel() ──────▶ Generate unique MCS label         │
+  │                                              │                                   │                             │
+  │  virDomainAttachDisk(dom, disk) ────▶ virSecurityManagerSetImageLabel() ─▶ Label disk with VM's MCS          │
+  │                                              │                                   │                             │
+  │                                              │                                   ▼                             │
+  │                                              │                              VM svirt_t:s0:c123,c456           │
+  │                                              │                              can only access files with         │
+  │                                              │                              matching MCS categories            │
+  │                                              │                                   │                             │
+  │                                              ◀───────────────────────────────────┘                             │
+  │                                                                                                                │
+  └────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+SOURCE CODE EVIDENCE (security/security_driver.h):
+
+  typedef struct _virSecurityDriver virSecurityDriver;
+  struct _virSecurityDriver {
+      const char *name;
+      int (*domainGenSecurityLabel)(virSecurityManager *mgr, virDomainDef *def);
+      int (*domainSetSecurityImageLabel)(virSecurityManager *mgr, virDomainDef *def, ...);
+      // ... more hooks
+  };
+
+RESULT:
+  - Every VM gets unique MCS categories (s0:c123,c456)
+  - VMs cannot access each other's disk images even if hypervisor is compromised
+  - Default on RHEL/Fedora virtualization
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         LAYER 3: CONTAINERS (go-selinux)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+YEAR: 2014-2016
+PROBLEM: Containers needed MAC. A compromised container shouldn't access host or other containers.
+SOLUTION: Container SELinux integration via go-selinux
+
+KEY SOURCE FILES:
+  github.com/opencontainers/selinux/go-selinux/selinux.go
+  github.com/containers/container-selinux
+
+THE PATTERN:
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                │
+  │  CONTAINER OPERATION                    GO-SELINUX                          KERNEL ENFORCEMENT                │
+  │                                                                                                                │
+  │  runc create container  ────────────▶ selinux.SetFileLabel(rootfs, label) ─▶ Rootfs labeled for container    │
+  │                                              │                                   │                             │
+  │  container process starts  ─────────▶ selinux.SetExecLabel(processLabel) ──▶ Process runs as container_t     │
+  │                                              │                                   │                             │
+  │                                              │                                   ▼                             │
+  │                                              │                              container_t:s0:c100,c200          │
+  │                                              │                              can only access its own rootfs    │
+  │                                              │                                   │                             │
+  │                                              ◀───────────────────────────────────┘                             │
+  │                                                                                                                │
+  └────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+SOURCE CODE EVIDENCE (go-selinux/selinux.go):
+
+  // SetFileLabel sets the SELinux label for a file path
+  func SetFileLabel(fpath string, label string) error {
+      return lsetxattr(fpath, "security.selinux", []byte(label), 0)
+  }
+
+  // SetExecLabel sets the SELinux label for the next exec
+  func SetExecLabel(label string) error {
+      return writeCon(attrPath("exec"), label)
+  }
+
+RESULT:
+  - Every container gets unique MCS categories
+  - Containers can't access each other's filesystems
+  - Default on OpenShift, Podman
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         LAYER 4: KUBERNETES (Pod Security)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+YEAR: 2018-2022
+PROBLEM: Pods needed security constraints at the orchestration level.
+SOLUTION: Pod Security Admission (replaced PodSecurityPolicy)
+
+KEY SOURCE FILES:
+  staging/src/k8s.io/pod-security-admission/admission/admission.go
+  staging/src/k8s.io/pod-security-admission/policy/check.go
+
+THE PATTERN:
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                │
+  │  POD CREATION                          ADMISSION WEBHOOK                    POLICY CHECK                      │
+  │                                                                                                                │
+  │  kubectl apply pod.yaml  ──────────▶ PodSecurityAdmission.Validate() ───▶ Check against policy level         │
+  │                                              │                                   │                             │
+  │                                              │                                   ▼                             │
+  │                                              │                              restricted: no privileged,         │
+  │                                              │                                          no hostPath,           │
+  │                                              │                                          no hostNetwork         │
+  │                                              │                                   │                             │
+  │                                              ◀───────────────────────────────────┘                             │
+  │                                         ALLOW or DENY                                                          │
+  │                                                                                                                │
+  └────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+SOURCE CODE EVIDENCE (admission/admission.go):
+
+  func (a *Admission) Validate(ctx context.Context, attrs api.Attributes) *admissionv1.AdmissionResponse {
+      // Get policy for namespace
+      policy := a.PolicyFor(attrs.GetNamespace())
+
+      // Check pod against policy
+      result := policy.Check(attrs.GetObject())
+
+      if result.Forbidden {
+          return &admissionv1.AdmissionResponse{Allowed: false, Result: &metav1.Status{...}}
+      }
+      return &admissionv1.AdmissionResponse{Allowed: true}
+  }
+
+RESULT:
+  - Three levels: privileged, baseline, restricted
+  - Enforced at namespace level
+  - Default on Kubernetes 1.25+
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         LAYER 5: AI AGENTS (Agent Policy)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+YEAR: 2026
+PROBLEM: AI agents need mandatory access control for tool invocations.
+SOLUTION: Agent Policy
+
+KEY SOURCE FILES:
+  pkg/policy/engine.go          - Policy evaluation
+  pkg/policy/cache.go           - Decision cache (AVC pattern)
+  pkg/router/policy.go          - Router integration
+
+THE PATTERN:
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                │
+  │  TOOL INVOCATION                        ROUTER INTERCEPT                    POLICY ENGINE                     │
+  │                                                                                                                │
+  │  agent.callTool("file.read")  ──────▶ policyEngine.Evaluate() ──────────▶ Check against AgentPolicy          │
+  │                                              │                                   │                             │
+  │                                              │                                   ▼                             │
+  │                                              │                              coding-assistant can               │
+  │                                              │                              file.read /workspace/**            │
+  │                                              │                              but NOT /etc/**                    │
+  │                                              │                                   │                             │
+  │                                              ◀───────────────────────────────────┘                             │
+  │                                         ALLOW or DENY                                                          │
+  │                                                                                                                │
+  └────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+SOURCE CODE EVIDENCE (pkg/policy/engine.go):
+
+  func (e *Engine) Evaluate(ctx context.Context, agent AgentContext, toolName string, request interface{}) (Decision, error) {
+      // 1. Check cache (AVC pattern)
+      if decision, _, ok := e.cache.Get(CacheKey(agent.AgentType, toolName)); ok {
+          return e.applyMode(decision), nil
+      }
+
+      // 2. Look up policy
+      policy, exists := e.policies[agent.AgentType]
+
+      // 3. Evaluate against policy
+      decision, reason := e.evaluatePolicy(policy, toolName, request)
+
+      // 4. Cache and return
+      e.cache.Set(cacheKey, decision, reason)
+      return e.applyMode(decision), nil
+  }
+
+RESULT:
+  - The SAME pattern, applied to AI agents
+  - Hook at Router (tool invocation boundary)
+  - Policy engine evaluates
+  - Cache for performance (AVC pattern)
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE LINEAGE SUMMARY
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  LAYER              │ YEAR     │ HOOK POINT               │ POLICY FORMAT         │ ENFORCEMENT
+  ───────────────────│──────────│──────────────────────────│───────────────────────│────────────────────────
+  Linux Kernel       │ 2001     │ LSM security_*() hooks   │ SELinux .te files     │ -EACCES
+  Virtualization     │ 2008     │ libvirt security driver  │ sVirt auto-labels     │ Kernel SELinux
+  Containers         │ 2014     │ go-selinux calls         │ container-selinux     │ Kernel SELinux
+  Kubernetes         │ 2018     │ Admission webhooks       │ PodSecurityStandard   │ API rejection
+  AI Agents          │ 2026     │ Router intercept         │ AgentPolicy CRD       │ gRPC PermissionDenied
+
+
+  THE INVARIANT:
+    At every layer, the solution is:
+      1. Identify the boundary (syscall, API, tool call)
+      2. Insert hooks at that boundary
+      3. Evaluate requests against policy
+      4. Enforce decisions
+
+  THE PROGRESSION:
+    Kernel → VM → Container → Pod → Agent
+    Each layer inherits from below and adds its own MAC.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                         THE GAP THAT AGENT POLICY FILLS
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Look at the current stack:
+
+  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                 │
+  │   AI Agent Process                                                                                              │
+  │        │                                                                                                        │
+  │        │  ← ← ← ← ← ← ← ← ← ←  THE GAP: No MAC for tool calls  ← ← ← ← ← ← ← ← ← ←                             │
+  │        │                                                                                                        │
+  │        ▼                                                                                                        │
+  │   Container (runc/containerd)  ─────────────▶ go-selinux  ───────────────▶ container_t:s0:c100                 │
+  │        │                                                                                                        │
+  │        ▼                                                                                                        │
+  │   Linux Kernel  ────────────────────────────▶ LSM/SELinux  ──────────────▶ File/network access control         │
+  │                                                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+The container is secured. The kernel is secured. But the AGENT'S TOOL CALLS are not.
+
+Agent Policy fills this gap:
+
+  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                                                 │
+  │   AI Agent Process                                                                                              │
+  │        │                                                                                                        │
+  │        │  ← ← ← ← ← ← ← ← ← ←  AGENT POLICY: MAC for tool calls  ← ← ← ← ← ← ← ← ← ←                           │
+  │        │                                                                                                        │
+  │        ▼                                                                                                        │
+  │   Router (Policy Engine)  ──────────────────▶ AgentPolicy  ──────────────▶ coding-assistant can file.read     │
+  │        │                                                                                                        │
+  │        ▼                                                                                                        │
+  │   Container (runc/containerd)  ─────────────▶ go-selinux  ───────────────▶ container_t:s0:c100                 │
+  │        │                                                                                                        │
+  │        ▼                                                                                                        │
+  │   Linux Kernel  ────────────────────────────▶ LSM/SELinux  ──────────────▶ File/network access control         │
+  │                                                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Now the entire stack has MAC at every layer.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              CONCLUSION
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+The architectural lineage is:
+
+  LSM (2001) → sVirt (2008) → go-selinux (2014) → Pod Security (2018) → Agent Policy (2026)
+
+Each layer applies the SAME pattern to its domain.
+Each layer builds on the layers below.
+Each layer was necessary for enterprise adoption.
+
+Agent Policy is not innovation. It is completion.
+The stack was incomplete. Now it's whole.
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              END OF DOCUMENT
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

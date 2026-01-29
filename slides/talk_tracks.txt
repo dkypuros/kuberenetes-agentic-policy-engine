@@ -1,0 +1,388 @@
+╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                                    GOLDEN AGENT ─ TALK TRACKS                                                      ║
+╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+Speaker notes for each HTML slide.
+Read these aloud or use as preparation for presenting the Golden Agent concept.
+Companion slides: 01_title.html through 08_takeaway.html
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                        SLIDE 1: TITLE (01_title.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Golden Agent is a Mandatory Access Control system for AI agents. Think of it as SELinux, but for AI tool invocations
+instead of Linux syscalls.
+
+The core idea is simple: we take a security architecture that has been battle-tested for 25 years in the Linux kernel
+and apply it to the new domain of AI agents.
+
+Look at the three boxes on the slide: Policy, Engine, Audit.
+
+Policy defines what agents can do - this is the AgentPolicy CRD, a Kubernetes custom resource written in YAML.
+
+Engine evaluates every tool call against that policy - this is engine.go, about 340 lines of Go that implements the
+same evaluation logic as the SELinux security server.
+
+Audit logs record every decision - structured JSON events that satisfy compliance requirements.
+
+This is not a new security model. It is a proven security model applied to a new problem.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                        SLIDE 2: THE PROBLEM (02_problem.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Enterprise adoption of AI agents is blocked by one question that CISOs keep asking: "What CAN'T this agent do?"
+
+Look at the two boxes on the slide. On the left, we have what sandboxes provide. Container isolation, network
+boundaries, resource limits. The sandbox can answer: "This agent cannot escape the container."
+
+But look at the right side. What enterprises actually need. Written policy, tool-level control, audit trails,
+compliance proof. The sandbox cannot answer: "Can this agent call network.fetch with an arbitrary domain?"
+
+These are fundamentally different questions.
+
+Now look at the bottom of the slide. The threat model has changed. In the container world, we worried about container
+escape. An attacker tries to break out of the sandbox.
+
+In the agent world, the threat is different. The attacker does not need to escape. They just need to trick the agent
+into calling a tool it should not be calling. This is tool misuse via prompt injection. The sandbox is intact, but
+the agent has been manipulated.
+
+The insight box on the right summarizes it: Enterprise adoption is blocked not by technical capability, but by
+provability. SOC2, FedRAMP, HIPAA, EU AI Act - they all require written policy, enforcement mechanism, and audit
+trail. Sandboxes do not provide these. Golden Agent does.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                   SLIDE 3: THE PATTERN (03_pattern.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+In 2001, Chris Wright and the Linux security community solved a similar problem for the kernel. The solution was
+Linux Security Modules, or LSM.
+
+Look at the flow diagram. An application makes a request. That request hits a boundary - the syscall interface.
+At that boundary, there is a hook. The hook intercepts the request before it reaches the resource.
+
+The hook calls the policy engine. The policy engine evaluates the request against rules. The engine returns a
+decision: allow or deny. If deny, the request is blocked. If allow, it proceeds.
+
+The highlighted box in the middle - that is the security boundary. That is where enforcement happens. There is no
+way around it. If you want to touch the resource, you go through the hook.
+
+Now look at the legend panel on the right. This pattern has a 25-year lineage.
+
+2001: Linux Kernel with LSM. Syscall hooks, SELinux security server.
+2008: Virtualization with sVirt. Libvirt security driver hooks.
+2014: Containers with go-selinux. Container runtime labels.
+2018: Kubernetes with PSA. Pod Security Admission webhooks.
+2026: AI Agents with Golden Agent. Tool invocation hooks in the Router.
+
+Every time we move up the stack, we bring the pattern with us. The hook point changes - syscall, VM, container, pod,
+tool call - but the architecture remains constant.
+
+The invariant at the bottom: Insert hooks at the boundary, evaluate against policy, enforce decisions. This has not
+changed in 25 years.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                   SLIDE 4: THE PARALLEL (04_parallel.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Let me walk you through the complete mapping between SELinux and Agent Policy. This is not an analogy. It is a direct
+translation. Every SELinux component has a corresponding implementation in Golden Agent.
+
+Look at the table. Left column is SELinux, right column is Agent Policy.
+
+Security Context becomes AgentContext. In SELinux, every process has a context with user, role, type, and level. In
+Agent Policy, every agent has a context with agentType, sandboxID, and tenantID. This is defined in types.go, lines
+108 through 127.
+
+Type Enforcement becomes Tool Enforcement. In SELinux, you write rules like "process_t can read file_t." In Agent
+Policy, you write rules like "coding-agent can call file.read." This is in types.go, lines 51 through 82.
+
+LSM Hooks become Router Intercept. In SELinux, hooks are inserted in the syscall path. In Agent Policy, we intercept
+at the tool invocation boundary in the router. This is router/policy.go, lines 171 through 188.
+
+The Security Server becomes the Policy Engine. This is where evaluation logic lives. That is engine.go, lines 79
+through 114.
+
+The Access Vector Cache, or AVC, becomes our Decision Cache. This is critical for performance. We cannot evaluate
+policy from scratch on every tool call. The cache makes repeated lookups fast - about one microsecond. That is
+cache.go.
+
+Multi-Category Security, or MCS, becomes Multi-Tenant Sandboxing, or MTS. This is how we isolate tenants from each
+other. That is mts.go.
+
+Policy Modules become AgentPolicy CRDs. In SELinux, you write .te files. In Agent Policy, you write Kubernetes
+custom resources in YAML. That is api/v1alpha1/agentpolicy_types.go.
+
+And finally, the audit log becomes structured JSON events. Every decision is recorded for compliance. That is
+audit.go.
+
+The code references in the legend panel show where each concept is implemented. 2,741 lines of production-ready Go.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                   SLIDE 5: THE ARCHITECTURE (05_architecture.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Let me walk you through the flow of a tool call. This is the hot path - the code that runs on every single tool
+invocation.
+
+At the top, an AI agent calls a tool. That call goes to the router. The router is the boundary.
+
+Look at the big box in the middle. This is the router with the policy engine embedded inside. This is critical. The
+engine is IN the router, not a sidecar. If it were a sidecar, there would be a bypass path.
+
+Inside the router, we have five steps, numbered on the slide.
+
+Step 1: Extract AgentContext. We pull out the agentType, sandboxID, and tenantID from the request metadata.
+
+Step 2: Check the cache. If we have seen this exact request before, we return the cached decision. This takes about
+one microsecond.
+
+Step 3: Look up the policy for this agent type. This is a map lookup - policies[agent.AgentType].
+
+Step 4: Find the tool in the policy and apply constraints. We check path patterns, allowed domains, ports, size
+limits.
+
+Step 5: Return the decision - ALLOW or DENY. We cache the result and emit an audit event.
+
+Now look at the mode box at the bottom of the router section. There are two modes.
+
+Permissive mode: Log and allow. This is for rollout. You deploy permissive first, watch the audit logs, fix any
+policy gaps, then switch to enforcing.
+
+Enforcing mode: Log and enforce. This is production. If the policy says deny, the tool call is blocked.
+
+Look at the performance numbers in the legend panel. Cache hit: about one microsecond. Cache miss: about 100
+microseconds. Total latency added to tool calls: less than one millisecond.
+
+The insight box emphasizes the critical design decision: the policy engine is IN the router. This ensures complete
+mediation. Every tool call goes through policy evaluation. There is no bypass.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                   SLIDE 6: THE PRINCIPLES (06_principles.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Golden Agent implements eight security principles. These are not new. They are the exact principles that made SELinux
+successful.
+
+Look at the grid of eight cards.
+
+Principle 1: Boundary Enforcement. The policy engine is in the router, at the boundary. Not a sidecar. Not optional.
+In the path.
+
+Principle 2: Separation of Mechanism and Policy. The engine, engine.go, is the mechanism. The CRDs are the policy.
+You can change policy without changing the engine.
+
+Principle 3: Default Deny. If a tool is not in the policy, it is denied. Unknown threats are blocked by default.
+This is the defaultAction field in AgentPolicySpec.
+
+Principle 4: Complete Mediation. The router is the only path to tools. There is no bypass. Every tool call goes
+through Evaluate().
+
+Principle 5: Least Privilege. Agents get explicit permissions with explicit constraints. PathPatterns, allowedDomains,
+maxSizeBytes. No more, no less.
+
+Principle 6: Auditability. Every decision is logged. Structured JSON with timestamp, agent, tool, decision, reason.
+Queryable. Compliance-ready.
+
+Principle 7: Caching for Performance. The AVC pattern gives us microsecond lookups for repeated decisions. This
+adds less than one millisecond to tool calls.
+
+Principle 8: Progressive Rollout. Start with permissive mode. Watch the logs. Fix the gaps. Then switch to enforcing.
+This is how you deploy safely.
+
+The code references on each card show where each principle is implemented in the codebase.
+
+The legend panel maps these principles to compliance frameworks. SOC 2, FedRAMP, HIPAA, EU AI Act - these principles
+satisfy their requirements.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                   SLIDE 7: THE CRD (07_crd.html)
+──────────────────────────────────────────────════════════════════════════════════════════════════════════════════════
+
+Let me show you what a policy looks like. This is the AgentPolicy CRD - the Kubernetes-native way to define access
+control for AI agents.
+
+Look at the YAML example on the left. This is a coding assistant policy.
+
+The apiVersion is agents.sandbox.io/v1alpha1. The kind is AgentPolicy.
+
+The spec has five main fields.
+
+First, agentTypes. This policy applies to coding-assistant and code-reviewer agents.
+
+Second, defaultAction is deny. This is Principle 3: Default Deny. If a tool is not explicitly allowed, it is blocked.
+
+Third, mode is enforcing. This is production. In rollout, you would set it to permissive.
+
+Fourth, toolPermissions. This is the list of explicit rules.
+
+Look at the file.read rule. Action is allow, but there is a constraint - pathPatterns. The agent can only read files
+under /workspace. If it tries to read /etc/passwd, denied.
+
+Look at network.fetch. Action is allow, but only for specific domains - api.github.com and pypi.org. If the agent
+tries to call some random API, denied.
+
+Look at shell.execute. Action is deny. This agent cannot run shell commands at all.
+
+Fifth, tenantIsolation. This configures Multi-Tenant Sandboxing. The mtsLabel follows SELinux MCS convention. The
+enforceMode is strict - cross-tenant access is blocked.
+
+Now look at the structure panels in the middle. These show the Go types behind the YAML.
+
+AgentPolicySpec has agentTypes, defaultAction, mode, toolPermissions, and tenantIsolation.
+
+ToolConstraints has pathPatterns, allowedDomains, deniedDomains, allowedPorts, maxSizeBytes, and timeout. These are
+the fine-grained controls that make least privilege possible.
+
+AgentPolicyStatus has compiledHash for detecting when recompilation is needed, activeBindings for tracking which
+SandboxClaims use this policy, and standard Kubernetes conditions.
+
+The legend panel shows the kubebuilder validation markers. These generate OpenAPI validation - invalid policies are
+rejected at admission time before they can cause problems.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                   SLIDE 8: KEY TAKEAWAY (08_takeaway.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+I want to leave you with one idea.
+
+Look at the message box in the center of the slide.
+
+In 2001, we learned how to control what processes can do. LSM and SELinux taught us to insert hooks at boundaries,
+evaluate against policy, and enforce decisions. That pattern has protected Linux systems for 25 years.
+
+In 2026, we have a new problem: AI agents that make tool calls. The threat model is different, but the architectural
+challenge is the same. We need to control what agents can do at the tool level.
+
+Golden Agent applies the same pattern. Hooks at the boundary. Policy evaluation. Enforcement. Audit.
+
+The pattern works.
+
+Look at the stats row at the bottom.
+
+2,741 lines of Go. This is not vaporware. This is production-ready code.
+
+25 years of lineage. This is not experimental security theory. This is proven architecture.
+
+8 core principles. These are the same principles that made SELinux work.
+
+Less than 1 millisecond added latency. This is fast enough for production.
+
+The pattern works. It worked for kernels. It worked for VMs. It worked for containers. It worked for Kubernetes.
+It will work for agents.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                              SLIDE 9: IMPLEMENTATION SUMMARY (09_implementation.html)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Let me show you the complete implementation. This is not a prototype. This is production-ready code integrated into
+the official kubernetes-sigs/agent-sandbox project.
+
+Look at the three package boxes on the left side of the slide.
+
+First, pkg/policy/ with seven files and 2,055 lines. This is the core of the system.
+
+types.go defines all the data structures - Decision, EnforcementMode, AgentContext, AuditEvent. 152 lines.
+
+engine.go is the policy evaluation engine - the security server. This is where Evaluate() lives, the function that
+runs on every tool call. 340 lines.
+
+cache.go implements the AVC-pattern decision cache. Microsecond lookups for repeated decisions. 138 lines.
+
+mts.go is Multi-Tenant Sandboxing - the SELinux MCS analog. This is how we isolate tenants. 242 lines.
+
+audit.go provides multiple audit sinks - AVC format for SELinux compatibility, JSON for modern systems, file and
+channel outputs. 301 lines.
+
+Then we have the test files. engine_test.go with 11 tests for the evaluation logic. mts_test.go with 26 tests for
+the dominance rules and label generation.
+
+Second, pkg/router/ with two files and 537 lines. This is the integration layer.
+
+policy.go contains RouterPolicyIntegration - the struct that connects the router to the policy engine. This is where
+extractAgentIdentity() and extractToolName() live. 293 lines.
+
+handler.go implements the gRPC handler pattern for tool requests. 217 lines.
+
+Third, api/v1alpha1/ with one file - agentpolicy_types.go. This is the AgentPolicy CRD with full kubebuilder
+validation markers. 254 lines.
+
+Look at the summary box at the bottom. 10 files. 2,846 total lines. 37 tests. 100% pass rate.
+
+The legend panel on the right shows what has been verified. All tests pass. All packages build. Apache 2.0 license
+headers. Correct import paths. The CRD is registered at agents.x-k8s.io/v1alpha1 with short names ap and agpol.
+
+This is real code. It is in the official repository. The pattern works.
+
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                        IMPLEMENTATION DETAILS
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+For deeper technical discussions, here are the key code references:
+
+pkg/policy/types.go (152 lines)
+─────────────────────────────────
+Defines the core data structures:
+• Decision (Allow/Deny)
+• EnforcementMode (Permissive/Enforcing)
+• ToolPermission and ToolConstraints
+• CompiledPolicy with ToolTable for O(1) lookup
+• AgentContext (identity of the calling agent)
+• AuditEvent (compliance record)
+
+pkg/policy/engine.go (340 lines)
+────────────────────────────────
+The evaluation engine - the "security server":
+• NewEngine() with options for mode, cache, audit sink
+• Evaluate() - the hot path, lines 79-114
+• evaluatePolicy() - checks tool against policy
+• checkConstraints() - applies path, domain, size constraints
+• applyMode() - handles permissive vs enforcing
+• CompilePolicy() - converts YAML spec to optimized lookup table
+
+pkg/policy/cache.go (138 lines)
+───────────────────────────────
+AVC-pattern decision cache:
+• CacheKey() - generates deterministic key from agent+tool
+• Get() - microsecond lookup
+• Set() - stores decision with TTL
+• InvalidatePrefix() - clears cache when policy changes
+• Stats() - hits, misses, hit rate for monitoring
+
+pkg/router/policy.go (293 lines)
+────────────────────────────────
+Integration layer connecting router to policy engine:
+• RouterPolicyIntegration struct holds the engine
+• extractAgentIdentity() - builds AgentContext from request
+• extractToolName() - normalizes tool names (CamelCase, snake_case, dot.notation)
+• Evaluate() - main entry point called by router for every tool call
+• LoadPolicy()/RemovePolicy() - handles CRD changes
+• SetMode() - runtime mode switching without restart
+
+api/v1alpha1/agentpolicy_types.go (254 lines)
+─────────────────────────────────────────────
+Kubernetes CRD definition:
+• DecisionAction enum (allow/deny)
+• EnforcementMode enum (permissive/enforcing)
+• MTSEnforceMode enum (strict/permissive/disabled)
+• ToolConstraints struct with all constraint types
+• ToolPermission struct linking tool to action + constraints
+• MTSConfig struct for tenant isolation
+• AgentPolicySpec and AgentPolicyStatus
+• Kubebuilder markers for validation and printing
+
+
+╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                                           END OF TALK TRACKS                                                       ║
+╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - The Architecture</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        .title-area {
+            text-align: center;
+            padding: 8px 100px 12px 100px;
+            flex-shrink: 0;
+        }
+
+        .slide-title {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--stroke);
+        }
+
+        .slide-subtitle {
+            font-family: var(--font-text);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            padding: 12px 48px;
+            gap: 30px;
+            min-height: 0;
+        }
+
+        /* =========================================================================
+           ARCHITECTURE DIAGRAM
+           ========================================================================= */
+        .diagram-container {
+            flex: 3;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .diagram-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .arch-flow {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .arch-box {
+            padding: 12px 20px;
+            border: 1px solid var(--stroke);
+            border-radius: 6px;
+            background: var(--fill-white);
+        }
+
+        .arch-box.agent {
+            align-self: flex-start;
+            width: 200px;
+            text-align: center;
+        }
+
+        .arch-box.router {
+            border: 2px solid var(--stroke);
+            background: var(--fill-light);
+            padding: 16px 24px;
+        }
+
+        .arch-box.tool {
+            align-self: flex-start;
+            width: 200px;
+            text-align: center;
+        }
+
+        .arch-label {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .arch-sub {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--stroke-light);
+            margin-top: 2px;
+        }
+
+        .router-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .router-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .step-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .step-num {
+            width: 20px;
+            height: 20px;
+            border: 1px solid var(--stroke);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-label {
+            font-family: var(--font-text);
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .step-detail {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .mode-box {
+            display: flex;
+            gap: 16px;
+            padding: 12px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+        }
+
+        .mode-item {
+            flex: 1;
+        }
+
+        .mode-label {
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .mode-desc {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .arrow-down {
+            width: 2px;
+            height: 16px;
+            background: var(--stroke);
+            margin-left: 99px;
+            position: relative;
+        }
+
+        .arrow-down::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: -4px;
+            border: 5px solid transparent;
+            border-top: 6px solid var(--stroke);
+        }
+
+        /* =========================================================================
+           LEGEND PANEL
+           ========================================================================= */
+        .legend-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .legend-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .legend-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .legend-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .code-block {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            background: var(--fill-light);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .insight-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--fill-light);
+        }
+
+        .insight-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .perf-box {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .perf-item {
+            flex: 1;
+            text-align: center;
+            padding: 6px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+        }
+
+        .perf-value {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .perf-label {
+            font-family: var(--font-text);
+            font-size: 8px;
+            color: var(--stroke-light);
+        }
+
+        /* =========================================================================
+           FOOTER & NAV
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover { background: var(--fill-light); }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / Implementation</div>
+            </div>
+        </div>
+
+        <!-- Title Area -->
+        <div class="title-area">
+            <h1 class="slide-title">How It Works</h1>
+            <p class="slide-subtitle">The evaluation flow from tool call to decision - engine.go:79-114</p>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Architecture Diagram -->
+            <div class="diagram-container">
+                <div class="diagram-title">Request Flow with Policy Enforcement</div>
+
+                <div class="arch-flow">
+                    <!-- Agent -->
+                    <div class="arch-box agent">
+                        <div class="arch-label">AI Agent</div>
+                        <div class="arch-sub">Calls tool</div>
+                    </div>
+
+                    <div class="arrow-down"></div>
+
+                    <!-- Router (Big Box) -->
+                    <div class="arch-box router">
+                        <div class="router-inner">
+                            <div class="router-header">
+                                <div>
+                                    <div class="arch-label">ROUTER (Boundary)</div>
+                                    <div class="arch-sub">router/policy.go:171-188</div>
+                                </div>
+                                <div class="arch-sub">Policy Engine is IN the router</div>
+                            </div>
+
+                            <!-- Steps -->
+                            <div class="step-row">
+                                <div class="step-num">1</div>
+                                <div class="step-content">
+                                    <div class="step-label">Extract AgentContext</div>
+                                    <div class="step-detail">agentType, sandboxID, tenantID</div>
+                                </div>
+                            </div>
+
+                            <div class="step-row">
+                                <div class="step-num">2</div>
+                                <div class="step-content">
+                                    <div class="step-label">Check Cache</div>
+                                    <div class="step-detail">HIT? Return cached decision (~1&micro;s)</div>
+                                </div>
+                            </div>
+
+                            <div class="step-row">
+                                <div class="step-num">3</div>
+                                <div class="step-content">
+                                    <div class="step-label">Look up policy for agent type</div>
+                                    <div class="step-detail">policies[agent.AgentType]</div>
+                                </div>
+                            </div>
+
+                            <div class="step-row">
+                                <div class="step-num">4</div>
+                                <div class="step-content">
+                                    <div class="step-label">Find tool in policy, apply constraints</div>
+                                    <div class="step-detail">pathPatterns, allowedDomains, ports</div>
+                                </div>
+                            </div>
+
+                            <div class="step-row">
+                                <div class="step-num">5</div>
+                                <div class="step-content">
+                                    <div class="step-label">Return Decision: ALLOW or DENY</div>
+                                    <div class="step-detail">Cache result, emit audit event</div>
+                                </div>
+                            </div>
+
+                            <!-- Mode Box -->
+                            <div class="mode-box">
+                                <div class="mode-item">
+                                    <div class="mode-label">Permissive Mode</div>
+                                    <div class="mode-desc">Log and ALLOW (rollout phase)</div>
+                                </div>
+                                <div class="mode-item">
+                                    <div class="mode-label">Enforcing Mode</div>
+                                    <div class="mode-desc">Log and ENFORCE (production)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down"></div>
+
+                    <!-- Tool -->
+                    <div class="arch-box tool">
+                        <div class="arch-label">Tool (if allowed)</div>
+                        <div class="arch-sub">Execute operation</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Panel -->
+            <div class="legend-panel">
+                <div class="legend-box">
+                    <div class="legend-title">Key Code: engine.go:79-114</div>
+                    <div class="code-block">
+func (e *Engine) Evaluate(<br>
+&nbsp;&nbsp;ctx, agent, toolName, request<br>
+) (Decision, error) {<br>
+&nbsp;&nbsp;// 1. Check cache first<br>
+&nbsp;&nbsp;if decision, ok := e.cache.Get(key); ok {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;return e.applyMode(decision), nil<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;// 2. Look up policy<br>
+&nbsp;&nbsp;policy := e.policies[agent.AgentType]<br>
+&nbsp;&nbsp;// 3. Evaluate<br>
+&nbsp;&nbsp;decision := e.evaluatePolicy(policy, toolName)<br>
+&nbsp;&nbsp;// 4. Cache + Audit<br>
+&nbsp;&nbsp;e.cache.Set(key, decision)<br>
+&nbsp;&nbsp;e.emitAudit(agent, tool, decision)<br>
+&nbsp;&nbsp;return e.applyMode(decision), nil<br>
+}
+                    </div>
+                </div>
+
+                <div class="legend-box">
+                    <div class="legend-title">Performance</div>
+                    <div class="perf-box">
+                        <div class="perf-item">
+                            <div class="perf-value">~1&micro;s</div>
+                            <div class="perf-label">Cache Hit</div>
+                        </div>
+                        <div class="perf-item">
+                            <div class="perf-value">~100&micro;s</div>
+                            <div class="perf-label">Cache Miss</div>
+                        </div>
+                        <div class="perf-item">
+                            <div class="perf-value">&lt;1ms</div>
+                            <div class="perf-label">Total Added</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    <div class="legend-title">Critical Design Decision</div>
+                    <p class="insight-text">
+                        The policy engine is <strong>IN</strong> the router, not a sidecar.
+                        If it were a sidecar, there would be a bypass path.
+                        By embedding it in the router, we ensure <strong>complete mediation</strong> -
+                        every tool call goes through policy evaluation.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">5</div>
+                </div>
+                <div class="source-info">Golden Agent - Evaluation Flow</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="location.href='04_parallel.html'">&larr;</button>
+                <button class="nav-btn" onclick="location.href='06_principles.html'">&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

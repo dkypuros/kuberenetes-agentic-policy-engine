@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Agent - The Pattern</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --stroke: #000000;
+            --stroke-light: #666666;
+            --fill-white: #ffffff;
+            --fill-light: #f5f5f5;
+            --background: #ffffff;
+            --font-display: 'Red Hat Display', sans-serif;
+            --font-text: 'Red Hat Text', sans-serif;
+            --font-mono: 'Red Hat Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-text);
+            background: var(--background);
+            color: var(--stroke);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 48px 0 48px;
+            flex-shrink: 0;
+        }
+
+        .section-marker-container {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .accent-bar {
+            width: 4px;
+            background: var(--stroke);
+            margin-right: 16px;
+            min-height: 36px;
+        }
+
+        .section-marker {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--stroke);
+            padding-top: 4px;
+        }
+
+        .title-area {
+            text-align: center;
+            padding: 8px 100px 12px 100px;
+            flex-shrink: 0;
+        }
+
+        .slide-title {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--stroke);
+        }
+
+        .slide-subtitle {
+            font-family: var(--font-text);
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            padding: 12px 48px;
+            gap: 30px;
+            min-height: 0;
+        }
+
+        /* =========================================================================
+           FLOW DIAGRAM
+           ========================================================================= */
+        .diagram-container {
+            flex: 3;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .diagram-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .flow-vertical {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            gap: 8px;
+        }
+
+        .flow-box {
+            width: 280px;
+            padding: 16px 24px;
+            border: 2px solid var(--stroke);
+            border-radius: 8px;
+            text-align: center;
+            background: var(--fill-white);
+        }
+
+        .flow-box.highlight {
+            background: var(--fill-light);
+            border-width: 3px;
+        }
+
+        .flow-box-label {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .flow-box-sub {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--stroke-light);
+            margin-top: 4px;
+        }
+
+        .flow-arrow-down {
+            width: 2px;
+            height: 24px;
+            background: var(--stroke);
+            position: relative;
+        }
+
+        .flow-arrow-down::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: -5px;
+            border: 6px solid transparent;
+            border-top: 8px solid var(--stroke);
+        }
+
+        .flow-branch {
+            display: flex;
+            align-items: flex-start;
+            gap: 24px;
+        }
+
+        .branch-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .branch-arrow {
+            width: 60px;
+            height: 2px;
+            background: var(--stroke);
+            position: relative;
+            margin-top: 20px;
+        }
+
+        .branch-arrow.left::before {
+            content: '';
+            position: absolute;
+            left: -1px;
+            top: -5px;
+            border: 6px solid transparent;
+            border-right: 8px solid var(--stroke);
+        }
+
+        .branch-arrow.right::after {
+            content: '';
+            position: absolute;
+            right: -1px;
+            top: -5px;
+            border: 6px solid transparent;
+            border-left: 8px solid var(--stroke);
+        }
+
+        .decision-box {
+            width: 160px;
+            padding: 12px 16px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        /* =========================================================================
+           INVARIANT BOX
+           ========================================================================= */
+        .invariant-box {
+            margin-top: 16px;
+            padding: 16px 24px;
+            border: 2px solid var(--stroke);
+            border-radius: 8px;
+            background: var(--fill-light);
+            text-align: center;
+        }
+
+        .invariant-label {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--stroke-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .invariant-text {
+            font-family: var(--font-text);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* =========================================================================
+           LEGEND PANEL
+           ========================================================================= */
+        .legend-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .legend-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .legend-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-family: var(--font-text);
+            font-size: 10px;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-marker {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--stroke);
+            border-radius: 3px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .legend-marker.highlight {
+            background: var(--fill-light);
+            border-width: 3px;
+        }
+
+        .year-box {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 4px 8px;
+            border: 1px solid var(--stroke);
+            border-radius: 3px;
+            background: var(--fill-white);
+            margin-bottom: 6px;
+        }
+
+        .insight-box {
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--fill-light);
+            flex: 1;
+        }
+
+        .insight-text {
+            font-family: var(--font-text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        /* =========================================================================
+           FOOTER & NAV
+           ========================================================================= */
+        .slide-footer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 10px 48px 14px 48px;
+            flex-shrink: 0;
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .page-number-container {
+            display: flex;
+            align-items: stretch;
+            margin-right: 16px;
+        }
+
+        .page-accent-bar {
+            width: 3px;
+            background: var(--stroke);
+            margin-right: 8px;
+            min-height: 30px;
+        }
+
+        .page-number {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--stroke);
+            align-self: flex-end;
+        }
+
+        .source-info {
+            font-family: var(--font-text);
+            font-size: 9px;
+            color: var(--stroke-light);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--stroke);
+            border-radius: 4px;
+            background: var(--fill-white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--stroke);
+            transition: background 0.15s;
+        }
+
+        .nav-btn:hover { background: var(--fill-light); }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="slide-header">
+            <div class="section-marker-container">
+                <div class="accent-bar"></div>
+                <div class="section-marker">AI Agent Security / The LSM Pattern</div>
+            </div>
+        </div>
+
+        <!-- Title Area -->
+        <div class="title-area">
+            <h1 class="slide-title">Hook-Based Security</h1>
+            <p class="slide-subtitle">Linux Security Modules (2001) - The pattern that Golden Agent inherits</p>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Flow Diagram -->
+            <div class="diagram-container">
+                <div class="diagram-title">Request Flow with Policy Enforcement</div>
+
+                <div class="flow-vertical">
+                    <div class="flow-box">
+                        <span class="flow-box-label">Application / AI Agent</span>
+                        <span class="flow-box-sub">Makes a request (syscall / tool call)</span>
+                    </div>
+
+                    <div class="flow-arrow-down"></div>
+
+                    <div class="flow-box">
+                        <span class="flow-box-label">Boundary</span>
+                        <span class="flow-box-sub">Syscall Interface / Router</span>
+                    </div>
+
+                    <div class="flow-arrow-down"></div>
+
+                    <div class="flow-box highlight">
+                        <span class="flow-box-label">HOOK (Intercept)</span>
+                        <span class="flow-box-sub">LSM Hook / Policy Engine</span>
+                    </div>
+
+                    <div class="flow-branch">
+                        <div class="branch-box">
+                            <div class="branch-arrow left"></div>
+                            <div class="decision-box">
+                                <span class="flow-box-label" style="font-size: 12px;">DENY</span>
+                                <span class="flow-box-sub">Block request</span>
+                            </div>
+                        </div>
+
+                        <div class="flow-box" style="width: 200px;">
+                            <span class="flow-box-label">Policy Evaluation</span>
+                            <span class="flow-box-sub">Check against rules</span>
+                        </div>
+
+                        <div class="branch-box">
+                            <div class="branch-arrow right"></div>
+                            <div class="decision-box">
+                                <span class="flow-box-label" style="font-size: 12px;">ALLOW</span>
+                                <span class="flow-box-sub">Proceed to resource</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Invariant -->
+                <div class="invariant-box">
+                    <div class="invariant-label">The Invariant (25 Years)</div>
+                    <div class="invariant-text">
+                        Insert hooks at the boundary &rarr; Evaluate against policy &rarr; Enforce decisions
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Panel -->
+            <div class="legend-panel">
+                <div class="legend-box">
+                    <div class="legend-title">Pattern Elements</div>
+                    <div class="legend-item">
+                        <div class="legend-marker"></div>
+                        <span>Standard flow component</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-marker highlight"></div>
+                        <span>Security boundary (hook point)</span>
+                    </div>
+                </div>
+
+                <div class="legend-box" style="flex: 2;">
+                    <div class="legend-title">25-Year Lineage</div>
+                    <div class="year-box">2001 - Linux Kernel (LSM)</div>
+                    <div class="legend-item">
+                        <span>Syscall hooks, SELinux security server</span>
+                    </div>
+                    <div class="year-box">2008 - Virtualization (sVirt)</div>
+                    <div class="legend-item">
+                        <span>Libvirt security driver hooks</span>
+                    </div>
+                    <div class="year-box">2014 - Containers (go-selinux)</div>
+                    <div class="legend-item">
+                        <span>Container runtime labels</span>
+                    </div>
+                    <div class="year-box">2018 - Kubernetes (PSA)</div>
+                    <div class="legend-item">
+                        <span>Pod Security Admission webhooks</span>
+                    </div>
+                    <div class="year-box">2026 - AI Agents (Golden Agent)</div>
+                    <div class="legend-item">
+                        <span>Tool invocation hooks in Router</span>
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    <div class="legend-title">Insight</div>
+                    <p class="insight-text">
+                        Every time we move up the stack, we bring the pattern with us.
+                        The hook point changes, but the architecture remains constant:
+                        intercept at boundary, evaluate policy, enforce decision.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="slide-footer">
+            <div class="footer-left">
+                <div class="page-number-container">
+                    <div class="page-accent-bar"></div>
+                    <div class="page-number">3</div>
+                </div>
+                <div class="source-info">Golden Agent - LSM Pattern (Chris Wright, 2001)</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="location.href='02_problem.html'">&larr;</button>
+                <button class="nav-btn" onclick="location.href='04_parallel.html'">&rarr;</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

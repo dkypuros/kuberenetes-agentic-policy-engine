@@ -1,0 +1,51 @@
+# Example: Restricted Agent Policy
+# Minimal permissions - read only, no network, no execution
+# Use for untrusted or evaluation scenarios
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: restricted-agent-policy
+  namespace: default
+spec:
+  agentTypes:
+    - untrusted-agent
+    - evaluation-agent
+
+  # DENY everything by default
+  defaultAction: deny
+
+  mode: enforcing
+
+  toolPermissions:
+    # Only allow reading from specific directories
+    - tool: file.read
+      action: allow
+      constraints:
+        pathPatterns:
+          - "/data/input/**"
+
+    # Everything else is implicitly denied by defaultAction: deny
+    # But we can be explicit for documentation:
+
+    - tool: file.write
+      action: deny
+
+    - tool: network.fetch
+      action: deny
+
+    - tool: code.execute
+      action: deny
+
+    - tool: shell.execute
+      action: deny
+
+    - tool: db.query
+      action: deny
+
+    - tool: db.admin
+      action: deny
+
+  # Multi-tenant isolation
+  tenantIsolation:
+    mtsLabel: "s0:c100,c200"  # Unique categories for this tenant
+    enforceMode: strict
