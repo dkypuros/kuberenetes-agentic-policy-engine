@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Policy Engine - Slides</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        h1 {
+            color: #58a6ff;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 16px;
+        }
+        h2 {
+            color: #8b949e;
+            margin-top: 32px;
+        }
+        a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .slides-list {
+            list-style: none;
+            padding: 0;
+        }
+        .slides-list li {
+            padding: 12px 16px;
+            margin: 8px 0;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+        }
+        .slides-list li:hover {
+            border-color: #58a6ff;
+        }
+        .slide-number {
+            color: #8b949e;
+            margin-right: 12px;
+        }
+        .description {
+            color: #8b949e;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .back-link {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #30363d;
+        }
+    </style>
+</head>
+<body>
+    <h1>Agentic Policy Engine</h1>
+    <p>Mandatory Access Control for AI agent tool invocations.<br>
+    SELinux-inspired policy engine with OPA/Rego and Kubernetes CRD integration.</p>
+
+    <h2>Presentation Slides</h2>
+    <ul class="slides-list">
+        <li>
+            <a href="slides/01_title.html"><span class="slide-number">01</span>Title</a>
+            <div class="description">Introduction to the Agentic Policy Engine</div>
+        </li>
+        <li>
+            <a href="slides/02_problem.html"><span class="slide-number">02</span>The Problem</a>
+            <div class="description">Why sandboxing alone isn't enough</div>
+        </li>
+        <li>
+            <a href="slides/03_pattern.html"><span class="slide-number">03</span>The Pattern</a>
+            <div class="description">LSM-inspired approach for AI agents</div>
+        </li>
+        <li>
+            <a href="slides/04_parallel.html"><span class="slide-number">04</span>The SELinux Parallel</a>
+            <div class="description">Mapping security concepts to agentic systems</div>
+        </li>
+        <li>
+            <a href="slides/05_architecture.html"><span class="slide-number">05</span>Architecture</a>
+            <div class="description">Policy evaluation flow and components</div>
+        </li>
+        <li>
+            <a href="slides/06_principles.html"><span class="slide-number">06</span>Core Principles</a>
+            <div class="description">8 principles from proven security systems</div>
+        </li>
+        <li>
+            <a href="slides/07_crd.html"><span class="slide-number">07</span>Kubernetes CRD</a>
+            <div class="description">AgentPolicy custom resource definition</div>
+        </li>
+        <li>
+            <a href="slides/08_takeaway.html"><span class="slide-number">08</span>Key Takeaway</a>
+            <div class="description">Summary and next steps</div>
+        </li>
+        <li>
+            <a href="slides/09_implementation.html"><span class="slide-number">09</span>Implementation</a>
+            <div class="description">Code structure and integration details</div>
+        </li>
+    </ul>
+
+    <div class="back-link">
+        <a href="https://github.com/dkypuros/kuberenetes-agentic-policy-engine">&larr; Back to GitHub Repository</a>
+    </div>
+</body>
+</html>
