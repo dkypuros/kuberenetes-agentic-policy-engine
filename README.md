@@ -124,3 +124,7 @@ go test ./pkg/policy/... -v  # 17 tests
 ## License
 
 Apache 2.0
+
+## Slides
+
+[View the presentation slides](https://dkypuros.github.io/kuberenetes-agentic-policy-engine/slides/01_title.html)
