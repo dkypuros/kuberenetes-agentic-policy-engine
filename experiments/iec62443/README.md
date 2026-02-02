@@ -7,8 +7,22 @@ cybersecurity concepts.
 
 ### YAML Files vs Kubernetes CRDs
 
-The policy files in this experiment are **plain YAML files** that we load directly with
-a Go YAML parser for testing. They are NOT deployed to Kubernetes.
+**The short version:** These policy files are just text files on disk. We're testing
+the policy *logic* without needing a Kubernetes cluster running.
+
+**The longer version:** In production, you'd store these policies in Kubernetes as
+"Custom Resources" - which means Kubernetes knows about them, tracks changes, and
+can notify our controller when someone updates a policy. That's powerful, but it
+requires a running cluster, the CRD schema deployed, RBAC configured, etc.
+
+For experimentation, that's overkill. We just want to answer: "Does the policy
+engine correctly block an enterprise agent from writing to a PLC?" We don't need
+Kubernetes for that - we can load the same YAML with a simple parser and test
+the logic directly.
+
+**Why this matters:** The policy files in this experiment are **plain YAML files**
+that we load directly with a Go YAML parser for testing. They are NOT deployed
+to Kubernetes.
 
 However, we intentionally format them to match the Kubernetes Custom Resource structure:
 
