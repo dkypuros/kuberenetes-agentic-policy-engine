@@ -7,22 +7,40 @@ cybersecurity concepts.
 
 ### YAML Files vs Kubernetes CRDs
 
-**The short version:** These policy files are just text files on disk. We're testing
-the policy *logic* without needing a Kubernetes cluster running.
+**How the Agent Policy Engine is designed to work:**
 
-**The longer version:** In production, you'd store these policies in Kubernetes as
-"Custom Resources" - which means Kubernetes knows about them, tracks changes, and
-can notify our controller when someone updates a policy. That's powerful, but it
-requires a running cluster, the CRD schema deployed, RBAC configured, etc.
+The policy engine is built around Kubernetes Custom Resource Definitions (CRDs).
+In production, you define policies as `AgentPolicy` resources in Kubernetes:
 
-For experimentation, that's overkill. We just want to answer: "Does the policy
-engine correctly block an enterprise agent from writing to a PLC?" We don't need
-Kubernetes for that - we can load the same YAML with a simple parser and test
-the logic directly.
+```bash
+kubectl apply -f control-zone-agent.yaml
+```
+
+Kubernetes stores the policy, the `AgentPolicyReconciler` controller detects the
+change, compiles it, and hot-reloads it into the running router. This gives you
+versioning, RBAC, GitOps workflows, audit trails - all the Kubernetes goodness.
+
+**What we're doing instead (for this experiment):**
+
+Running a Kubernetes cluster just to test "does the policy engine block an
+enterprise agent from writing to a PLC?" is overkill. So instead, we load the
+same YAML files directly with a Go parser and feed them to the policy engine.
+
+The key insight: **the YAML structure is identical**. We use the same `apiVersion`,
+`kind`, `metadata`, and `spec` fields that the Kubernetes CRD expects. The only
+difference is *how* the file gets to the policy engine:
+
+| Approach | Path to Policy Engine |
+|----------|----------------------|
+| **Production (CRD)** | `kubectl apply` → K8s API → Controller → `CompilePolicy()` |
+| **Experiment (YAML)** | `yaml.Unmarshal()` → `CompilePolicy()` |
+
+Same policy, same compilation, same enforcement. We just skip the Kubernetes
+machinery for faster iteration.
 
 **Why this matters:** The policy files in this experiment are **plain YAML files**
 that we load directly with a Go YAML parser for testing. They are NOT deployed
-to Kubernetes.
+to Kubernetes - but they're formatted exactly like they would be if they were.
 
 However, we intentionally format them to match the Kubernetes Custom Resource structure:
 
