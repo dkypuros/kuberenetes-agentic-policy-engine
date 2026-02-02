@@ -1,0 +1,130 @@
+# Enterprise Zone Agent Policy (Purdue Level 5)
+#
+# This agent operates at the Enterprise Network level - ERP, email, reporting.
+# It has NO access to OT systems whatsoever. The DMZ enforces separation.
+#
+# IEC 62443 Security Level: SL 1 (standard IT security)
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: enterprise-zone-agent-policy
+  labels:
+    iec62443.zone: "level-5-enterprise"
+    iec62443.security-level: "SL1"
+spec:
+  agentTypes: ["enterprise-zone-agent"]
+
+  # Default deny - explicit allow list
+  defaultAction: deny
+
+  # Enforcing mode
+  mode: enforcing
+
+  # Tenant isolation - enterprise division
+  tenantIsolation:
+    mtsLabel: "corp-hq-enterprise"
+    enforceMode: strict
+
+  toolPermissions:
+    # ============================================================
+    # ALLOWED: Enterprise business tools
+    # ============================================================
+
+    - tool: erp.query
+      action: allow
+      constraints:
+        allowedDomains: ["erp.corp.example.com"]
+        allowedPorts: [443]
+
+    - tool: erp.update
+      action: allow
+      constraints:
+        # Can update inventory, orders, etc.
+        allowedDomains: ["erp.corp.example.com"]
+        allowedPorts: [443]
+
+    - tool: email.read
+      action: allow
+      constraints:
+        allowedDomains: ["mail.corp.example.com"]
+
+    - tool: email.send
+      action: allow
+      constraints:
+        allowedDomains: ["mail.corp.example.com"]
+        # Could add recipient domain restrictions here
+
+    - tool: report.generate
+      action: allow
+
+    - tool: analytics.query
+      action: allow
+      constraints:
+        allowedDomains: ["analytics.corp.example.com", "bi.corp.example.com"]
+
+    - tool: file.read
+      action: allow
+      constraints:
+        # Enterprise file shares only
+        pathPatterns: ["/corp/shares/**", "/corp/reports/**"]
+
+    - tool: file.write
+      action: allow
+      constraints:
+        pathPatterns: ["/corp/shares/**", "/corp/reports/**"]
+
+    # ============================================================
+    # CONDUIT: Approved path to DMZ for OT data (read-only)
+    # ============================================================
+
+    - tool: dmz.production-summary
+      action: allow
+      constraints:
+        # Can request production summaries through DMZ
+        # This is sanitized/aggregated data, not raw OT data
+        allowedDomains: ["data-broker.dmz.example.com"]
+        allowedPorts: [443]
+
+    # ============================================================
+    # EXPLICITLY DENIED: Any direct OT access
+    # ============================================================
+
+    - tool: historian.read
+      action: deny
+      # NO direct historian access - must go through DMZ broker
+
+    - tool: historian.write
+      action: deny
+
+    - tool: hmi.read
+      action: deny
+      # Enterprise agents cannot see HMI screens
+
+    - tool: plc.read
+      action: deny
+      # Absolutely no PLC access
+
+    - tool: plc.write
+      action: deny
+
+    - tool: scada.query
+      action: deny
+      # No SCADA access from enterprise
+
+    - tool: modbus.read
+      action: deny
+      # No industrial protocol access
+
+    - tool: opcua.read
+      action: deny
+      # No OPC-UA access
+
+    # ============================================================
+    # EXPLICITLY DENIED: Direct internet from enterprise agent
+    # ============================================================
+
+    - tool: internet.fetch
+      action: deny
+      # Agents don't get arbitrary internet access
+      # Use specific integrations instead

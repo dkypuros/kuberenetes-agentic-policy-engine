@@ -1,0 +1,148 @@
+# DMZ Broker Agent Policy (Purdue Level 3.5)
+#
+# This agent operates in the Industrial DMZ - the ONLY approved conduit between
+# IT (Enterprise) and OT (Operations/Control) zones.
+#
+# It can:
+#   - READ from Operations Zone (historian, aggregated data)
+#   - RELAY sanitized data to Enterprise Zone
+#   - TRANSLATE protocols (OPC-UA → REST, etc.)
+#
+# It CANNOT:
+#   - Write to any OT system
+#   - Access Control Zone directly (Level 2)
+#   - Store or cache sensitive OT data locally
+#
+# IEC 62443 Security Level: SL 3 (protection against sophisticated attacks)
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: dmz-broker-agent-policy
+  labels:
+    iec62443.zone: "level-3.5-dmz"
+    iec62443.security-level: "SL3"
+    iec62443.role: "conduit"
+spec:
+  agentTypes: ["dmz-broker-agent"]
+
+  # Default deny - conduits are tightly controlled
+  defaultAction: deny
+
+  # Enforcing mode - DMZ is critical boundary
+  mode: enforcing
+
+  # Tenant isolation - DMZ serves specific plant
+  tenantIsolation:
+    mtsLabel: "plant-alpha-dmz"
+    enforceMode: strict
+
+  toolPermissions:
+    # ============================================================
+    # CONDUIT NORTH: Read from Operations Zone (Level 3)
+    # ============================================================
+
+    - tool: historian.read
+      action: allow
+      constraints:
+        # Can read from operations historian
+        allowedDomains: ["historian.operations.plant-alpha.local"]
+        allowedPorts: [443]
+
+    - tool: production.summary
+      action: allow
+      constraints:
+        # Aggregated production data
+        allowedDomains: ["mes.operations.plant-alpha.local"]
+
+    - tool: quality.metrics
+      action: allow
+      constraints:
+        # Quality metrics for enterprise reporting
+        allowedDomains: ["quality.operations.plant-alpha.local"]
+
+    # ============================================================
+    # CONDUIT SOUTH: Relay to Enterprise Zone (Level 4/5)
+    # ============================================================
+
+    - tool: data.relay
+      action: allow
+      constraints:
+        # Push sanitized data to enterprise data lake
+        allowedDomains: ["data-lake.corp.example.com"]
+        allowedPorts: [443]
+
+    - tool: api.publish
+      action: allow
+      constraints:
+        # Publish data via REST API for enterprise consumers
+        allowedDomains: ["api-gateway.dmz.example.com"]
+        allowedPorts: [443, 8443]
+
+    # ============================================================
+    # PROTOCOL TRANSLATION (core DMZ function)
+    # ============================================================
+
+    - tool: protocol.translate
+      action: allow
+      # Translate OPC-UA to REST, Modbus to JSON, etc.
+      # The actual protocol handling is in the tool implementation
+
+    - tool: data.sanitize
+      action: allow
+      # Remove sensitive fields, aggregate, anonymize
+
+    - tool: data.validate
+      action: allow
+      # Validate data before relay
+
+    # ============================================================
+    # EXPLICITLY DENIED: Write to OT systems
+    # ============================================================
+
+    - tool: historian.write
+      action: deny
+      # DMZ cannot write to OT historian
+
+    - tool: mes.write
+      action: deny
+      # Cannot modify MES data
+
+    - tool: plc.read
+      action: deny
+      # NO direct PLC access - DMZ only talks to Operations Zone
+
+    - tool: plc.write
+      action: deny
+
+    - tool: hmi.read
+      action: deny
+      # Cannot access Control Zone (Level 2)
+
+    - tool: setpoint.read
+      action: deny
+      # No access to control setpoints
+
+    # ============================================================
+    # EXPLICITLY DENIED: Local storage (data in transit only)
+    # ============================================================
+
+    - tool: file.write
+      action: deny
+      # DMZ broker should not persist OT data locally
+
+    - tool: db.write
+      action: deny
+      # No local database writes
+
+    # ============================================================
+    # EXPLICITLY DENIED: External network access
+    # ============================================================
+
+    - tool: internet.fetch
+      action: deny
+      # DMZ is isolated - no internet access
+
+    - tool: email.send
+      action: deny
+      # Conduit only - no communication tools

@@ -1,0 +1,200 @@
+# IEC 62443 Security Levels → Policy Strictness Mapping
+#
+# This file shows how the same agent type can have different policy strictness
+# based on the required Security Level (SL 1-4).
+#
+# Same agent, same tools, different enforcement rigor.
+
+---
+# ============================================================
+# SL 1: Protection against casual or coincidental violation
+# ============================================================
+# "Security by awareness" - logging, basic access control
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: monitoring-agent-sl1
+  labels:
+    iec62443.security-level: "SL1"
+spec:
+  agentTypes: ["monitoring-agent-sl1"]
+
+  # Permissive: log violations but don't block
+  # Good for initial deployment, understanding access patterns
+  defaultAction: allow
+  mode: permissive
+
+  toolPermissions:
+    - tool: historian.read
+      action: allow
+      # No constraints - SL1 is permissive
+
+    - tool: historian.write
+      action: deny
+      # Still deny writes, but mode is permissive so it just logs
+
+---
+# ============================================================
+# SL 2: Protection against intentional violation using simple means
+# ============================================================
+# Default deny, explicit allows, basic constraints
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: monitoring-agent-sl2
+  labels:
+    iec62443.security-level: "SL2"
+spec:
+  agentTypes: ["monitoring-agent-sl2"]
+
+  # Default deny - must explicitly allow each tool
+  defaultAction: deny
+  mode: enforcing
+
+  toolPermissions:
+    - tool: historian.read
+      action: allow
+      constraints:
+        # Basic domain restriction
+        allowedDomains: ["historian.local"]
+
+    - tool: historian.write
+      action: deny
+
+    - tool: alarm.read
+      action: allow
+
+    # Everything else: denied by default
+
+---
+# ============================================================
+# SL 3: Protection against sophisticated attacks (moderate resources)
+# ============================================================
+# SL2 + strict constraints + MTS labels + rate limiting
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: monitoring-agent-sl3
+  labels:
+    iec62443.security-level: "SL3"
+spec:
+  agentTypes: ["monitoring-agent-sl3"]
+
+  defaultAction: deny
+  mode: enforcing
+
+  # MTS: Multi-Tenant Security - cryptographic tenant isolation
+  tenantIsolation:
+    mtsLabel: "plant-alpha-sl3"
+    enforceMode: strict
+
+  toolPermissions:
+    - tool: historian.read
+      action: allow
+      constraints:
+        # Strict domain + port + path constraints
+        allowedDomains: ["historian.plant-alpha.secure.local"]
+        allowedPorts: [443]  # HTTPS only
+        pathPatterns: ["/api/v2/readonly/**"]
+
+    - tool: historian.write
+      action: deny
+
+    - tool: alarm.read
+      action: allow
+      constraints:
+        allowedDomains: ["alarm-server.plant-alpha.secure.local"]
+        allowedPorts: [443]
+
+    # Additional SL3 controls would include:
+    # - Rate limiting (not in current schema, but could add)
+    # - Time-of-day restrictions
+    # - Geolocation constraints
+    # - Certificate pinning requirements
+
+---
+# ============================================================
+# SL 4: Protection against state-sponsored attacks
+# ============================================================
+# SL3 + OPA policy-as-code + full audit + anomaly detection
+#
+# At SL4, you'd likely use OPA for complex policy logic:
+# - Behavioral analysis
+# - Multi-factor authorization
+# - Real-time threat intelligence integration
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: monitoring-agent-sl4
+  labels:
+    iec62443.security-level: "SL4"
+    iec62443.opa-policy: "enabled"
+spec:
+  agentTypes: ["monitoring-agent-sl4"]
+
+  defaultAction: deny
+  mode: enforcing
+
+  tenantIsolation:
+    mtsLabel: "plant-alpha-sl4-classified"
+    enforceMode: strict
+
+  toolPermissions:
+    - tool: historian.read
+      action: allow
+      constraints:
+        allowedDomains: ["historian.plant-alpha.airgap.local"]
+        allowedPorts: [443]
+        pathPatterns: ["/api/v2/readonly/approved/**"]
+        # At SL4, additional OPA rules would check:
+        # - Time-based access windows
+        # - Anomaly scores from ML models
+        # - Real-time threat intel
+        # - Multi-party authorization
+
+    - tool: historian.write
+      action: deny
+
+    # At SL4, even read operations might require:
+    # - Break-glass procedures for emergency access
+    # - Multi-person integrity (two agents must agree)
+    # - Hardware security module (HSM) attestation
+
+# ============================================================
+# OPA Policy Example (would be in separate .rego file)
+# ============================================================
+#
+# package iec62443.sl4
+#
+# default allow = false
+#
+# allow {
+#     input.agent_type == "monitoring-agent-sl4"
+#     input.tool == "historian.read"
+#     time_window_ok
+#     anomaly_score_ok
+#     threat_intel_clear
+#     mts_label_matches
+# }
+#
+# time_window_ok {
+#     # Only allow during business hours
+#     hour := time.clock(time.now_ns())[0]
+#     hour >= 6
+#     hour <= 18
+# }
+#
+# anomaly_score_ok {
+#     # Check ML anomaly detection service
+#     score := external.anomaly_score(input.agent_id)
+#     score < 0.7
+# }
+#
+# threat_intel_clear {
+#     # Check threat intelligence feed
+#     not external.threat_indicator(input.source_ip)
+# }

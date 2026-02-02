@@ -1,0 +1,101 @@
+# Control Zone Agent Policy (Purdue Level 2)
+#
+# This agent operates at the Area Supervisory Control level - HMIs, SCADA displays.
+# It can READ from control systems but CANNOT WRITE to PLCs or actuators.
+# This enforces the principle: AI agents observe, humans command.
+#
+# IEC 62443 Security Level: SL 2 (protection against intentional violation)
+#
+apiVersion: agents.sandbox.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: control-zone-agent-policy
+  labels:
+    iec62443.zone: "level-2-control"
+    iec62443.security-level: "SL2"
+spec:
+  agentTypes: ["control-zone-agent"]
+
+  # Default deny - only explicitly allowed tools can be called
+  defaultAction: deny
+
+  # Enforcing mode - actually block unauthorized requests
+  mode: enforcing
+
+  # Tenant isolation - prevent cross-plant access
+  tenantIsolation:
+    mtsLabel: "plant-alpha-control"
+    enforceMode: strict
+
+  toolPermissions:
+    # ============================================================
+    # ALLOWED: Read operations within the control zone
+    # ============================================================
+
+    - tool: hmi.read
+      action: allow
+      constraints:
+        # Can only read from HMIs in this plant
+        allowedDomains: ["hmi-*.plant-alpha.local"]
+
+    - tool: setpoint.read
+      action: allow
+      constraints:
+        # Read current setpoints - useful for monitoring
+        allowedDomains: ["plc-*.plant-alpha.local"]
+
+    - tool: trend.query
+      action: allow
+      constraints:
+        # Query trend data from historian (conduit to Level 3)
+        allowedDomains: ["historian.plant-alpha.local"]
+        allowedPorts: [443]
+
+    - tool: alarm.read
+      action: allow
+      constraints:
+        # Read alarm status
+        allowedDomains: ["alarm-server.plant-alpha.local"]
+
+    # ============================================================
+    # CONDUIT: Approved path to Operations Zone (Level 3)
+    # ============================================================
+
+    - tool: historian.read
+      action: allow
+      constraints:
+        # This is the approved conduit to Level 3
+        allowedDomains: ["historian.operations.plant-alpha.local"]
+        allowedPorts: [443, 8443]
+
+    # ============================================================
+    # EXPLICITLY DENIED: Write operations to control systems
+    # ============================================================
+
+    - tool: setpoint.write
+      action: deny
+      # CRITICAL: Agents cannot change setpoints - human operator only
+
+    - tool: plc.write
+      action: deny
+      # CRITICAL: Agents cannot write to PLCs
+
+    - tool: actuator.command
+      action: deny
+      # CRITICAL: Agents cannot command actuators
+
+    - tool: alarm.acknowledge
+      action: deny
+      # Alarm acknowledgment requires human judgment
+
+    # ============================================================
+    # EXPLICITLY DENIED: Access to other zones (no conduit)
+    # ============================================================
+
+    - tool: enterprise.query
+      action: deny
+      # No direct access to enterprise zone - must go through DMZ
+
+    - tool: internet.fetch
+      action: deny
+      # Control zone is air-gapped from internet
