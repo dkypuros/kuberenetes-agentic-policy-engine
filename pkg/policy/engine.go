@@ -207,7 +207,7 @@ func (e *Engine) evaluatePolicy(policy *CompiledPolicy, toolName string, request
 // checkConstraints evaluates constraint rules against the request
 func (e *Engine) checkConstraints(constraints *ToolConstraints, toolName string, request interface{}) bool {
 	// Type-assert request to extract parameters
-	// In production, this would be the proto.ExecuteRequest
+	// When using gRPC, parameters come from agentpb.ExecuteRequest.GetParametersMap()
 	params, ok := request.(map[string]interface{})
 	if !ok {
 		// Can't check constraints without structured request

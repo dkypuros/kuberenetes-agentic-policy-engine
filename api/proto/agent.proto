@@ -1,0 +1,126 @@
+// Copyright 2024 Golden Agent Authors
+// SPDX-License-Identifier: Apache-2.0
+//
+// Protocol Buffer definitions for the Golden Agent Policy Engine.
+// This defines the binary-to-binary gRPC interface between agents and the router.
+//
+// The router embeds the policy engine and enforces mandatory access control
+// on every tool call. Agents communicate with the router via this gRPC service.
+
+syntax = "proto3";
+
+package agents.sandbox.v1alpha1;
+
+option go_package = "github.com/golden-agent/golden-agent/api/proto/v1alpha1;agentpb";
+
+// AgentService is the gRPC service for agent-to-router communication.
+// Every tool call from an agent passes through this service, where the
+// embedded policy engine evaluates the request against loaded policies.
+service AgentService {
+  // Execute requests a tool execution. The router evaluates the request
+  // against policy before forwarding to the tool executor.
+  // Returns PERMISSION_DENIED if policy denies the request.
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+
+  // StreamExecute handles streaming tool executions (e.g., long-running tasks).
+  // Policy is evaluated on the initial request; subsequent chunks are allowed
+  // if the initial request was allowed.
+  rpc StreamExecute(stream ExecuteRequest) returns (stream ExecuteResponse);
+}
+
+// ExecuteRequest represents a tool execution request from an agent.
+// This is the binary message format sent over the gRPC channel.
+message ExecuteRequest {
+  // tool_name is the name of the tool to execute (e.g., "file.read", "code.execute")
+  string tool_name = 1;
+
+  // parameters contains tool-specific parameters as a JSON-encoded string.
+  // Using bytes allows arbitrary structured data without defining every tool's schema.
+  bytes parameters = 2;
+
+  // metadata contains agent identity and context for policy evaluation.
+  RequestMetadata metadata = 3;
+
+  // request_id is a unique identifier for this request (for tracing/audit).
+  string request_id = 4;
+}
+
+// RequestMetadata contains identity and context from the agent.
+// This information is used by the policy engine to determine which
+// policy applies and to enforce tenant isolation.
+message RequestMetadata {
+  // agent_type is the type/class of agent (e.g., "coding-assistant", "data-analyst").
+  // This maps to the agentTypes field in the AgentPolicy CRD.
+  string agent_type = 1;
+
+  // sandbox_id identifies the specific sandbox instance.
+  string sandbox_id = 2;
+
+  // tenant_id identifies the tenant for multi-tenant isolation.
+  // Used with MTS labels to enforce cross-tenant access controls.
+  string tenant_id = 3;
+
+  // session_id identifies the agent session (for audit trails).
+  string session_id = 4;
+
+  // mts_label is the Multi-Tenant Security label (SHA-256 hash).
+  // Requests are denied if the MTS label doesn't match the policy's tenant label.
+  string mts_label = 5;
+
+  // Additional metadata as key-value pairs.
+  map<string, string> labels = 6;
+}
+
+// ExecuteResponse contains the result of a tool execution.
+message ExecuteResponse {
+  // result contains the tool execution result as JSON-encoded bytes.
+  bytes result = 1;
+
+  // error contains any error message if the execution failed.
+  string error = 2;
+
+  // status indicates the outcome of the request.
+  ExecutionStatus status = 3;
+
+  // request_id echoes the request ID for correlation.
+  string request_id = 4;
+
+  // policy_decision contains details about the policy evaluation (for debugging).
+  PolicyDecision policy_decision = 5;
+}
+
+// ExecutionStatus indicates the outcome of a tool execution request.
+enum ExecutionStatus {
+  EXECUTION_STATUS_UNSPECIFIED = 0;
+
+  // SUCCESS indicates the tool executed successfully.
+  EXECUTION_STATUS_SUCCESS = 1;
+
+  // DENIED indicates the policy engine denied the request.
+  EXECUTION_STATUS_DENIED = 2;
+
+  // ERROR indicates the tool execution failed.
+  EXECUTION_STATUS_ERROR = 3;
+
+  // INVALID indicates the request was malformed.
+  EXECUTION_STATUS_INVALID = 4;
+}
+
+// PolicyDecision contains details about how the policy engine evaluated a request.
+// This is included in responses for debugging and audit purposes.
+message PolicyDecision {
+  // decision is the policy verdict (allow/deny).
+  string decision = 1;
+
+  // policy_name is the name of the policy that was evaluated.
+  string policy_name = 2;
+
+  // matched_rule describes which rule in the policy matched (if any).
+  string matched_rule = 3;
+
+  // evaluation_time_ns is the time taken to evaluate the policy in nanoseconds.
+  int64 evaluation_time_ns = 4;
+
+  // cache_hit indicates whether the decision was served from cache.
+  bool cache_hit = 5;
+}

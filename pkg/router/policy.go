@@ -156,7 +156,7 @@ func initPolicyEngine(config PolicyConfig) *policy.Engine {
 }
 
 // RequestMetadata contains identity and context from the gRPC request.
-// In production, this maps to fields from the ExecuteRequest proto.
+// This maps to fields from agentpb.RequestMetadata in api/proto/v1alpha1.
 type RequestMetadata struct {
 	// AgentType is the type/class of agent (e.g., "coding-assistant")
 	AgentType string

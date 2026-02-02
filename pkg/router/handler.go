@@ -1,14 +1,27 @@
-// handler.go demonstrates how the Agent Sandbox Router integrates with the Policy Engine.
+// handler.go provides internal types and utilities for policy-enforced tool routing.
 //
-// This file shows the pattern for intercepting ExecuteRequest at the gRPC boundary,
-// evaluating the request against policy, and returning PermissionDenied on policy deny.
+// This file contains lightweight Go types for internal use (testing, direct embedding).
+// For production gRPC communication, see server.go which implements the full
+// AgentService using Protocol Buffer types from api/proto/v1alpha1.
+//
+// Architecture:
+//
+//	                    ┌─────────────────────────────────────────┐
+//	                    │           Router Binary                 │
+//	                    │  ┌─────────────────────────────────┐   │
+//	Agent ──protobuf──> │  │  gRPC Server (server.go)        │   │
+//	                    │  │    │                            │   │
+//	                    │  │    v                            │   │
+//	                    │  │  Policy Engine                  │   │
+//	                    │  │    │                            │   │
+//	                    │  │    v                            │   │
+//	                    │  │  Tool Executor                  │   │
+//	                    │  └─────────────────────────────────┘   │
+//	                    └─────────────────────────────────────────┘
 //
 // The integration point is analogous to LSM hooks in the Linux kernel:
 //   - LSM: security_file_permission() called before file operations
 //   - Agent Policy: Evaluate() called before tool execution
-//
-// In production, this code would be integrated into the actual router service.
-// The patterns shown here are extracted for clarity.
 package router
 
 import (
@@ -19,8 +32,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ExecuteRequest represents a tool execution request from an agent.
-// In production, this would be the generated proto message.
+// ExecuteRequest represents a tool execution request (internal format).
+// For gRPC/protobuf communication, use agentpb.ExecuteRequest from api/proto/v1alpha1.
 type ExecuteRequest struct {
 	// ToolName is the name of the tool to execute
 	ToolName string
@@ -32,8 +45,8 @@ type ExecuteRequest struct {
 	Metadata RequestMetadata
 }
 
-// ExecuteResponse represents the result of a tool execution.
-// In production, this would be the generated proto message.
+// ExecuteResponse represents the result of a tool execution (internal format).
+// For gRPC/protobuf communication, use agentpb.ExecuteResponse from api/proto/v1alpha1.
 type ExecuteResponse struct {
 	// Result is the tool execution result
 	Result interface{}
@@ -42,8 +55,9 @@ type ExecuteResponse struct {
 	Error string
 }
 
-// ToolRouter routes tool requests to the appropriate sandbox.
-// This is a simplified representation of the actual router.
+// ToolRouter routes tool requests with policy enforcement.
+// This is the lightweight version for testing and direct embedding.
+// For production gRPC servers, use Server from server.go.
 type ToolRouter struct {
 	policy *RouterPolicyIntegration
 
@@ -133,85 +147,76 @@ func (r *ToolRouter) PolicyStats() (hits, misses uint64, hitRate float64, polici
 }
 
 // ============================================================
-// EXAMPLE USAGE
+// EXAMPLE: Using the gRPC Server (Production)
 // ============================================================
 //
-// func main() {
-//     // 1. Create router with policy integration
-//     config := DefaultPolicyConfig()
-//     config.Mode = policy.Enforcing  // Actually block denied requests
-//     router := NewToolRouter(config)
+// For production deployments, use the gRPC Server from server.go:
 //
-//     // 2. Load policies (normally from AgentPolicy CRDs)
-//     codingPolicy := policy.CompilePolicy(
-//         "coding-assistant-policy",
-//         []string{"coding-assistant"},
-//         policy.Deny,  // Default deny
-//         []policy.ToolPermission{
-//             {Tool: "file.read", Action: policy.Allow},
-//             {Tool: "file.write", Action: policy.Allow},
-//             {Tool: "code.exec", Action: policy.Allow},
-//             {Tool: "network.fetch", Action: policy.Deny},  // Explicit deny
-//         },
-//         policy.Enforcing,
-//         "",  // No MTS label
-//     )
-//     router.LoadPolicy("coding-assistant", codingPolicy)
+//	import (
+//	    "net"
+//	    agentpb "github.com/golden-agent/golden-agent/api/proto/v1alpha1"
+//	    "github.com/golden-agent/golden-agent/pkg/router"
+//	    "github.com/golden-agent/golden-agent/pkg/policy"
+//	)
 //
-//     // 3. Handle requests
-//     req := &ExecuteRequest{
-//         ToolName: "file.read",
-//         Parameters: map[string]interface{}{
-//             "path": "/workspace/main.go",
-//         },
-//         Metadata: RequestMetadata{
-//             AgentType: "coding-assistant",
-//             SandboxID: "sandbox-123",
-//             TenantID:  "tenant-abc",
-//         },
-//     }
+//	func main() {
+//	    // 1. Create gRPC server with embedded policy engine
+//	    config := router.DefaultServerConfig()
+//	    config.PolicyConfig.Mode = policy.Enforcing
+//	    server := router.NewServer(config)
 //
-//     resp, err := router.Execute(context.Background(), req)
-//     if err != nil {
-//         // Check if it's a policy denial
-//         if status.Code(err) == codes.PermissionDenied {
-//             log.Printf("Policy denied: %v", err)
-//         }
-//     }
-// }
+//	    // 2. Load policies (normally from AgentPolicy CRDs via controller)
+//	    codingPolicy := policy.CompilePolicy(
+//	        "coding-assistant-policy",
+//	        []string{"coding-assistant"},
+//	        policy.Deny,
+//	        []policy.ToolPermission{
+//	            {Tool: "file.read", Action: policy.Allow},
+//	            {Tool: "file.write", Action: policy.Allow},
+//	        },
+//	        policy.Enforcing,
+//	        "",
+//	    )
+//	    server.LoadPolicy("coding-assistant", codingPolicy)
+//
+//	    // 3. Start listening for gRPC connections
+//	    lis, _ := net.Listen("tcp", ":50051")
+//	    server.Serve(lis)
+//	}
+//
+// Agents connect using the gRPC client:
+//
+//	conn, _ := grpc.Dial("localhost:50051", grpc.WithInsecure())
+//	client := agentpb.NewAgentServiceClient(conn)
+//
+//	resp, err := client.Execute(ctx, &agentpb.ExecuteRequest{
+//	    ToolName:   "file.read",
+//	    Parameters: []byte(`{"path": "/workspace/main.go"}`),
+//	    Metadata: &agentpb.RequestMetadata{
+//	        AgentType: "coding-assistant",
+//	        SandboxId: "sandbox-123",
+//	        TenantId:  "tenant-abc",
+//	    },
+//	})
 //
 // ============================================================
-// GRPC SERVER INTEGRATION
+// EXAMPLE: Using ToolRouter (Testing/Embedding)
 // ============================================================
 //
-// In a full gRPC server implementation, the Execute method would be
-// registered as the handler for the ExecuteRequest RPC:
+// For testing or direct embedding without gRPC:
 //
-// type agentServer struct {
-//     pb.UnimplementedAgentServiceServer
-//     router *ToolRouter
-// }
+//	config := router.DefaultPolicyConfig()
+//	config.Mode = policy.Enforcing
+//	r := router.NewToolRouter(config)
 //
-// func (s *agentServer) Execute(ctx context.Context, req *pb.ExecuteRequest) (*pb.ExecuteResponse, error) {
-//     // Convert proto request to internal format
-//     internalReq := &ExecuteRequest{
-//         ToolName: req.GetToolName(),
-//         Parameters: extractParameters(req),
-//         Metadata: RequestMetadata{
-//             AgentType: req.GetMetadata().GetAgentType(),
-//             SandboxID: req.GetMetadata().GetSandboxId(),
-//             TenantID:  req.GetMetadata().GetTenantId(),
-//             SessionID: req.GetMetadata().GetSessionId(),
-//             MTSLabel:  req.GetMetadata().GetMtsLabel(),
-//         },
-//     }
+//	// Load policy
+//	r.LoadPolicy("coding-assistant", codingPolicy)
 //
-//     // Execute with policy enforcement
-//     resp, err := s.router.Execute(ctx, internalReq)
-//     if err != nil {
-//         return nil, err  // gRPC status codes are already set
-//     }
-//
-//     // Convert response back to proto
-//     return &pb.ExecuteResponse{...}, nil
-// }
+//	// Execute directly (no network)
+//	resp, err := r.Execute(ctx, &router.ExecuteRequest{
+//	    ToolName: "file.read",
+//	    Parameters: map[string]interface{}{"path": "/workspace/main.go"},
+//	    Metadata: router.RequestMetadata{
+//	        AgentType: "coding-assistant",
+//	    },
+//	})
