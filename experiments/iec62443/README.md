@@ -3,6 +3,77 @@
 Exploring how the SELinux-inspired Agent Policy Engine maps to IEC 62443 industrial
 cybersecurity concepts.
 
+## About This Experiment
+
+### YAML Files vs Kubernetes CRDs
+
+The policy files in this experiment are **plain YAML files** that we load directly with
+a Go YAML parser for testing. They are NOT deployed to Kubernetes.
+
+However, we intentionally format them to match the Kubernetes Custom Resource structure:
+
+```yaml
+apiVersion: agents.sandbox.io/v1alpha1   # ← Looks like a K8s API group
+kind: AgentPolicy                        # ← Looks like a K8s resource type
+metadata:
+  name: control-zone-agent-policy        # ← Standard K8s metadata
+spec:
+  agentTypes: [...]                      # ← Policy specification
+```
+
+**Why format them this way?**
+
+So the same policy file works in both contexts:
+
+| Context | How Policy is Loaded |
+|---------|---------------------|
+| **This experiment** | `yaml.Unmarshal()` → `policy.CompilePolicy()` → Engine |
+| **Production (K8s)** | `kubectl apply` → K8s API → Controller watches → Engine |
+
+### What Would Be Different in Production?
+
+In a real Kubernetes deployment:
+
+1. **CRD Schema** - You'd first deploy a CustomResourceDefinition that tells K8s
+   what an `AgentPolicy` looks like (field types, validation, etc.)
+
+2. **Controller** - The `AgentPolicyReconciler` in `pkg/controller/` watches for
+   these resources and syncs them to the policy engine automatically
+
+3. **Lifecycle** - Policies are versioned, audited, and managed by K8s (GitOps, RBAC, etc.)
+
+### How This Experiment Works
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Experiment (what we're doing here)                                 │
+│                                                                     │
+│    policies/*.yaml  →  Go test loads with yaml.Unmarshal()          │
+│                              ↓                                      │
+│                     policy.CompilePolicy()                          │
+│                              ↓                                      │
+│                     router.Execute() checks policy                  │
+│                              ↓                                      │
+│                     ALLOW or DENY                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  Production (Kubernetes deployment)                                 │
+│                                                                     │
+│    kubectl apply -f policies/*.yaml                                 │
+│                              ↓                                      │
+│                     Kubernetes API stores CR                        │
+│                              ↓                                      │
+│                     AgentPolicyReconciler watches                   │
+│                              ↓                                      │
+│                     policy.CompilePolicy()                          │
+│                              ↓                                      │
+│                     Hot-reload into running router                  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+The policy logic is identical. Only the delivery mechanism changes.
+
 ## Conceptual Mapping
 
 | IEC 62443 Concept | Agent Policy Equivalent |
