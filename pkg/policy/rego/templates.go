@@ -156,6 +156,9 @@ domain_allowed_{{.SafeName}}(domain) if {
     {{if hasPrefix . "*."}}
     # Wildcard: {{.}}
     endswith(domain, "{{trimPrefix . "*"}}")
+{{- else if contains . "*"}}
+    # Glob: {{.}} ("*" matches within a single label)
+    glob.match("{{.}}", ["."], domain)
 {{- else}}
     domain == "{{.}}"
 {{- end}}
@@ -170,6 +173,8 @@ domain_denied_{{.SafeName}}(domain) if {
 {{- range .DeniedDomains}}
     {{if hasPrefix . "*."}}
     endswith(domain, "{{trimPrefix . "*"}}")
+{{- else if contains . "*"}}
+    glob.match("{{.}}", ["."], domain)
 {{- else}}
     domain == "{{.}}"
 {{- end}}
@@ -256,6 +261,7 @@ func CompileToRego(spec *PolicySpec) (string, error) {
 	funcMap := template.FuncMap{
 		"hasPrefix":  strings.HasPrefix,
 		"trimPrefix": strings.TrimPrefix,
+		"contains":   strings.Contains,
 	}
 
 	tmpl, err := template.New("rego").Funcs(funcMap).Parse(regoTemplate)

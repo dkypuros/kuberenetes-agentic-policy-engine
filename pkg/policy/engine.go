@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -388,9 +390,23 @@ func matchDomain(pattern, domain string) bool {
 		return true
 	}
 	if len(pattern) > 1 && pattern[0] == '*' && pattern[1] == '.' {
-		// *.example.com matches foo.example.com
+		// *.example.com matches foo.example.com (any depth)
 		suffix := pattern[1:] // .example.com
 		return len(domain) > len(suffix) && domain[len(domain)-len(suffix):] == suffix
+	}
+	if strings.Contains(pattern, "*") {
+		// General glob, e.g. hmi-*.plant-alpha.local; "*" matches within a single label
+		var b strings.Builder
+		b.WriteString("^")
+		for i, part := range strings.Split(pattern, "*") {
+			if i > 0 {
+				b.WriteString("[^.]*")
+			}
+			b.WriteString(regexp.QuoteMeta(part))
+		}
+		b.WriteString("$")
+		matched, err := regexp.MatchString(b.String(), domain)
+		return err == nil && matched
 	}
 	return pattern == domain
 }
