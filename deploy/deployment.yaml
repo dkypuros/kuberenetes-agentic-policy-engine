@@ -1,0 +1,84 @@
+# Deploys the policy engine with the AgentPolicy CRD controller enabled.
+# Apply crd.yaml first. Set the image to your registry's build of Dockerfile.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-policy-engine
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-policy-engine
+rules:
+  - apiGroups: ["agents.sandbox.io"]
+    resources: ["agentpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["agents.sandbox.io"]
+    resources: ["agentpolicies/status"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agent-policy-engine
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agent-policy-engine
+subjects:
+  - kind: ServiceAccount
+    name: agent-policy-engine
+    namespace: REPLACE_NAMESPACE
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-policy-engine
+  labels:
+    app: agent-policy-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-policy-engine
+  template:
+    metadata:
+      labels:
+        app: agent-policy-engine
+    spec:
+      serviceAccountName: agent-policy-engine
+      containers:
+        - name: policy-engine
+          image: REPLACE_IMAGE
+          env:
+            - name: ENFORCEMENT_MODE
+              value: enforcing
+            - name: ENABLE_CONTROLLER
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8900
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-policy-engine
+  labels:
+    app: agent-policy-engine
+spec:
+  selector:
+    app: agent-policy-engine
+  ports:
+    - name: http
+      port: 8900
+      targetPort: http

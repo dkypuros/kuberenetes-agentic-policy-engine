@@ -1,6 +1,9 @@
 package policy
 
 import (
+	"encoding/json"
+	"fmt"
+	"hash/fnv"
 	"strings"
 	"sync"
 	"time"
@@ -38,8 +41,32 @@ func NewDecisionCache(ttl time.Duration) *DecisionCache {
 
 // CacheKey generates a lookup key from agent type and tool name.
 // Format: "agentType:toolName"
+//
+// Deprecated: this key ignores request parameters, so a cached decision for
+// one parameter set would be replayed for another, bypassing constraint
+// checks (path patterns, domains, ports). Use CacheKeyWithParams.
 func CacheKey(agentType, toolName string) string {
 	return agentType + ":" + toolName
+}
+
+// CacheKeyWithParams generates a lookup key from agent type, tool name, and
+// a stable hash of the request parameters. Including the parameters is what
+// makes caching safe in the presence of constraints — the same reason
+// SELinux's AVC keys on (source, target, class), not just (source, class).
+// Format: "agentType:toolName:paramsHash"
+func CacheKeyWithParams(agentType, toolName string, request interface{}) string {
+	h := fnv.New64a()
+	if request != nil {
+		// json.Marshal sorts map keys, giving a stable encoding.
+		if b, err := json.Marshal(request); err == nil {
+			h.Write(b)
+		} else {
+			// Unencodable request: fall back to a per-call unique key so the
+			// entry can never be replayed for a different request.
+			fmt.Fprintf(h, "%p-%d", &request, time.Now().UnixNano())
+		}
+	}
+	return agentType + ":" + toolName + ":" + fmt.Sprintf("%x", h.Sum64())
 }
 
 // Get retrieves a cached decision.

@@ -110,8 +110,12 @@ func NewEngine(opts ...Option) *Engine {
 func (e *Engine) Evaluate(ctx context.Context, agent AgentContext, toolName string, request interface{}) (Decision, error) {
 	requestID := generateRequestID()
 
-	// 1. Check cache first (microsecond path)
-	cacheKey := CacheKey(agent.AgentType, toolName)
+	// 1. Check cache first (microsecond path).
+	// The key must include the request parameters: constraints (path patterns,
+	// domains, ports) are evaluated against them, so a decision for one
+	// parameter set must never be replayed for another — the same reason
+	// SELinux's AVC keys on the *target* context, not just source and class.
+	cacheKey := CacheKeyWithParams(agent.AgentType, toolName, request)
 	if decision, reason, ok := e.cache.Get(cacheKey); ok {
 		e.emitAudit(agent, toolName, decision, reason, requestID, true)
 		return e.applyMode(decision), nil
